@@ -1,6 +1,8 @@
 aagen
 =====
 
+![Screenshot](./screenshot1.png)
+
 Installation
 ------------
 
