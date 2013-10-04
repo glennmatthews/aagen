@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-# Dungeon_Generator - the Controller for our dungeon generator
+# DungeonGenerator - the Controller for our dungeon generator
 #
 # This controller class implements all of the random dungeon generation
-# logic and instructs the Dungeon_Map as to what new Regions and
+# logic and instructs the DungeonMap as to what new Regions and
 # Connections to add.
 
 import pygame
 import logging
 import random
 import math
-from aamap import Dungeon_Map, Direction, Region, Connection, Decoration
-from aadisplay import Dungeon_Display
+from aamap import DungeonMap, Direction, Region, Connection, Decoration
+from aadisplay import DungeonDisplay
 from shapely.geometry.point import Point
 from shapely.geometry.linestring import LineString
 from shapely.geometry.polygon import Polygon
@@ -29,7 +29,7 @@ def d20():
     return roll
 
 
-class Dungeon_Generator:
+class DungeonGenerator:
     """Controller class to generate the dungeon map"""
 
     def __init__(self, dungeon_map, seed=None):
@@ -351,7 +351,7 @@ class Dungeon_Generator:
 
 
     def __str__(self):
-        return ("(Dungeon_Generator: with map {0})"
+        return ("<DungeonGenerator: with map {0}>"
                 .format(self.dungeon_map))
 
 

@@ -6,9 +6,9 @@ import logging
 import traceback
 import argparse
 
-from aagenerator import Dungeon_Generator
-from aamap import Dungeon_Map
-from aadisplay import Dungeon_Display
+from aagenerator import DungeonGenerator
+from aamap import DungeonMap
+from aadisplay import DungeonDisplay
 
 log = logging.getLogger(__name__)
 
@@ -30,9 +30,9 @@ def main():
     pygame.init()
     clock = pygame.time.Clock()
 
-    dungeon_map = Dungeon_Map()
-    dungeon_display = Dungeon_Display(dungeon_map)
-    dungeon_generator = Dungeon_Generator(dungeon_map, args.seed)
+    dungeon_map = DungeonMap()
+    dungeon_display = DungeonDisplay(dungeon_map)
+    dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
 
     dungeon_display.draw()
 

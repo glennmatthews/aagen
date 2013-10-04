@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-# Dungeon_Map - the Model for our dungeon generator
+# DungeonMap - the Model for our dungeon generator
 #
 # Represented as a collection of Regions and Connections.
 # Each Region owns a single Polygon that does not overlap any other Regions.
 # Each Connection straddles the border between two Regions.
-# The Dungeon_Map handles collision detection between Regions and so forth.
+# The DungeonMap handles collision detection between Regions and so forth.
 # A Region may have one or more Decorations which are items placed on the map
 # that do not have any direct implications for the map geometry.
 #
 # In order to ensure reproducibility (i.e., using the same random seed will
-# always generate the same dungeon map), the Dungeon_Map can use sets internally
+# always generate the same dungeon map), the DungeonMap can use sets internally
 # but all access through get_foo() functions must return consistently sorted
 # lists.
 
@@ -91,13 +91,13 @@ def rotate(points, angle):
     return output
 
 
-class Dungeon_Map:
+class DungeonMap:
     """Master model class. Stores a collection of Regions and Connections"""
 
     _ids = count(0)
 
     def __init__(self):
-        """Initialize a new empty Dungeon_Map"""
+        """Initialize a new empty DungeonMap"""
         self.regions = set()
         self.connections = set()
         self.decorations = set()
@@ -107,7 +107,7 @@ class Dungeon_Map:
 
 
     def __repr__(self):
-        return ("<Dungeon_Map {4}: {0} regions, "
+        return ("<DungeonMap {4}: {0} regions, "
                 "{1} connections ({2} incomplete), "
                 "{5} decorations, "
                 "total {3} square feet>"

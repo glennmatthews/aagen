@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-# Dungeon_Display - the View for our dungeon generator
+# DungeonDisplay - the View for our dungeon generator
 #
-# Handles rendering of Dungeon_Map and its associated Regions and Connections.
+# Handles rendering of DungeonMap and its associated Regions and Connections.
 
 import logging
 import pygame
 import math
 
-from aamap import Dungeon_Map, Region, Connection, Decoration
+from aamap import DungeonMap, Region, Connection, Decoration
 from aamap import rotate
 
 from shapely.geometry.point import Point
@@ -16,11 +16,11 @@ from shapely.geometry.linestring import LineString
 
 log = logging.getLogger(__name__)
 
-class Dungeon_Display:
+class DungeonDisplay:
     """Class to handle visual rendering of the map"""
 
     def __init__(self, dungeon_map, (w, h)=(None, None)):
-        assert isinstance(dungeon_map, Dungeon_Map)
+        assert isinstance(dungeon_map, DungeonMap)
         if w is None:
             w = pygame.display.Info().current_w - 100
         if h is None:
@@ -31,7 +31,7 @@ class Dungeon_Display:
 
 
     def __str__(self):
-        return ("(Dungeon_Display: surface {0}, map {1})"
+        return ("<DungeonDisplay: surface {0}, map {1}>"
                 .format(self.surface, self.dungeon_map))
 
 
