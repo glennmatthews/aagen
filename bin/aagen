@@ -1,14 +1,23 @@
 #!/usr/bin/env python
 # main.py - the driver for our dungeon generator program
 
+# Fixup sys.path to point to the module
+import sys, os
+path = os.path.abspath(sys.argv[0])
+while os.path.dirname(path) != path:
+    if os.path.exists(os.path.join(path, 'aagen', '__init__.py')):
+        sys.path.insert(0, path)
+        break
+    path = os.path.dirname(path)
+
 import pygame
 import logging
 import traceback
 import argparse
 
-from aagenerator import DungeonGenerator
-from aamap import DungeonMap
-from aadisplay import DungeonDisplay
+from aagen.generator import DungeonGenerator
+from aagen.map import DungeonMap
+from aagen.display import DungeonDisplay
 
 log = logging.getLogger(__name__)
 

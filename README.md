@@ -15,7 +15,7 @@ On a Mac using MacPorts you can install these as follows:
     sudo port install py27-shapely
     sudo port select --set python python27
 
-Once you have these installed you can launch the program with `./main.py`
+Once you have these installed you can launch the program with `python bin/aagen`
 
 Use
 ---
@@ -25,7 +25,7 @@ dungeon. On the console you will see various informational and debug messages.
 One of the first messages output to the console will report the "seed" that was
 used to generate this dungeon:
 
-    INFO:Dungeon_Generator:Random seed is 1201576528
+    INFO:aagen.generator:Random seed is 1201576528
 
 If you want to recreate the same dungeon again, you can launch the program with
 `./main.py -s <seed number>` and the exact same dungeon will be generated as
