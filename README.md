@@ -13,6 +13,7 @@ On a Mac using MacPorts you can install these as follows:
     sudo port install python27
     sudo port install py27-game
     sudo port install py27-shapely
+    sudo port select --set python python27
 
 Once you have these installed you can launch the program with `./main.py`
 
