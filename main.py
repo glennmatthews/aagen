@@ -6,9 +6,9 @@ import logging
 import traceback
 import argparse
 
-from Dungeon_Generator import Dungeon_Generator
-from Dungeon_Map import Dungeon_Map
-from Dungeon_Display import Dungeon_Display
+from aagenerator import Dungeon_Generator
+from aamap import Dungeon_Map
+from aadisplay import Dungeon_Display
 
 log = logging.getLogger(__name__)
 

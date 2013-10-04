@@ -9,8 +9,8 @@ import pygame
 import logging
 import random
 import math
-from Dungeon_Map import Dungeon_Map, Direction, Region, Connection, Decoration
-from Dungeon_Display import Dungeon_Display
+from aamap import Dungeon_Map, Direction, Region, Connection, Decoration
+from aadisplay import Dungeon_Display
 from shapely.geometry.point import Point
 from shapely.geometry.linestring import LineString
 from shapely.geometry.polygon import Polygon

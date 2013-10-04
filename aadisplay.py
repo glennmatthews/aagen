@@ -7,9 +7,8 @@ import logging
 import pygame
 import math
 
-import Dungeon_Map
-from Dungeon_Map import Dungeon_Map, Region, Connection, Decoration
-from Dungeon_Map import rotate
+from aamap import Dungeon_Map, Region, Connection, Decoration
+from aamap import rotate
 
 from shapely.geometry.point import Point
 from shapely.geometry.linestring import LineString
