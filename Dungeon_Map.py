@@ -1007,11 +1007,13 @@ class Region:
 
 
     def __repr__(self):
-        return ("<Region {4}: {0} in {1} (area {2}) with {3} connections>"
+        return ("<Region {4}: {0} in {1} (area {2}) with {3} connections "
+                "and {5} decorations>"
                 .format(self.kind, bounds_str(self.polygon),
                         self.polygon.area,
                         len(self.connections),
-                        self.id))
+                        self.id,
+                        len(self.decorations)))
 
 
     def get_coords(self):
