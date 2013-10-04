@@ -8,7 +8,7 @@ import pygame
 import math
 
 import Dungeon_Map
-from Dungeon_Map import Dungeon_Map, Region, Connection
+from Dungeon_Map import Dungeon_Map, Region, Connection, Decoration
 from Dungeon_Map import rotate
 
 from shapely.geometry.point import Point
@@ -286,6 +286,13 @@ class Dungeon_Display:
                 raise LookupError("Don't know how to draw foreground for {0}"
                                   .format(conn.kind))
 
+        for dec in self.dungeon_map.get_decorations():
+            if dec.kind == Decoration.STAIRS:
+                pygame.draw.polygon(self.surface, (100, 100, 100),
+                                    self.map_to_screen(dec.get_coords()))
+            else:
+                raise LookupError("Don't know how to draw foreground for {0}"
+                                  .format(dec.kind))
 
     def draw(self):
         """Render the entire map to the surface"""

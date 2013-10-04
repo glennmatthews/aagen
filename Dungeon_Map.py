@@ -1,10 +1,12 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/env python
 # Dungeon_Map - the Model for our dungeon generator
 #
 # Represented as a collection of Regions and Connections.
 # Each Region owns a single Polygon that does not overlap any other Regions.
 # Each Connection straddles the border between two Regions.
 # The Dungeon_Map handles collision detection between Regions and so forth.
+# A Region may have one or more Decorations which are items placed on the map
+# that do not have any direct implications for the map geometry.
 #
 # In order to ensure reproducibility (i.e., using the same random seed will
 # always generate the same dungeon map), the Dungeon_Map can use sets internally
@@ -98,6 +100,7 @@ class Dungeon_Map:
         """Initialize a new empty Dungeon_Map"""
         self.regions = set()
         self.connections = set()
+        self.decorations = set()
         self.conglomerate_polygon = None
         self.id = self._ids.next()
         log.debug("Initialized {0}".format(self))
@@ -106,17 +109,22 @@ class Dungeon_Map:
     def __repr__(self):
         return ("<Dungeon_Map {4}: {0} regions, "
                 "{1} connections ({2} incomplete), "
+                "{5} decorations, "
                 "total {3} square feet>"
                 .format(len(self.regions), len(self.connections),
                         len(self.get_incomplete_connections()),
                         (self.conglomerate_polygon.area if
                          self.conglomerate_polygon is not None else 0),
-                        self.id))
+                        self.id,
+                        len(self.decorations)))
 
 
     def object_at(self, (x, y)):
         """Get the Connection or Region at the clicked location"""
         point = Point(x, y)
+        for dec in self.decorations:
+            if dec.polygon.contains(point):
+                return dec
         for conn in self.connections:
             if conn.polygon.contains(point):
                 return conn
@@ -141,6 +149,8 @@ class Dungeon_Map:
             self.regions.add(region)
             polygons = set([r.polygon for r in self.regions])
             self.conglomerate_polygon = cascaded_union(polygons)
+            for decoration in region.decorations:
+                self.add_decoration(decoration)
             for connection in region.connections:
                 self.add_connection(connection)
             # Look for any existing connections to fix up
@@ -152,6 +162,12 @@ class Dungeon_Map:
                     # TODO fix up any funky edges
                     connection.add_region(region)
                     self.add_connection(connection)
+
+    def add_decoration(self, dec):
+        assert isinstance(dec, Decoration)
+        if not dec in self.decorations:
+            log.info("Adding {0} to {1}".format(dec, self))
+            self.decorations.add(dec)
 
 
     def add_connection(self, connection):
@@ -187,9 +203,12 @@ class Dungeon_Map:
     def get_connections(self):
         return sorted(self.connections, key=lambda r: r.id)
 
-
     def get_incomplete_connections(self):
         return [item for item in self.get_connections() if item.is_incomplete()]
+
+
+    def get_decorations(self):
+        return sorted(self.decorations, key=lambda r: r.id)
 
 
     def find_adjacency_options(self, old_shape, new_shape, direction):
@@ -1053,6 +1072,7 @@ class Region:
 
     def add_decoration(self, decoration):
         """Add a decorative region to this Region"""
+        assert isinstance(decoration, Decoration)
         self.decorations.add(decoration)
         log.debug("Added ({0}) to ({1})".format(decoration, self))
 
@@ -1241,3 +1261,49 @@ class Connection:
         log.debug("Moving ({0}) by ({1}, {2})".format(self, dx, dy))
         self.line = shapely.affinity.translate(self.line, dx, dy)
         self.polygon = shapely.affinity.translate(self.polygon, dx, dy)
+
+
+class Decoration:
+    """An object that appears on the map but does not count as part of the
+    physical geometry of the map like a Region would. Typically owned by
+    a Region."""
+
+    STAIRS = "Stairs"
+
+    __kinds = [STAIRS]
+
+    _ids = count(0)
+
+    @classmethod
+    def Stairs(cls, (x, y), (width, length), orientation):
+        """Construct a Stairs decoration with the given center, size,
+        and orientation"""
+        # An isosceles triangle with height="length" and base="width"
+        base_coords = [(length/2, 0), (-length/2, width/2),
+                       (-length/2, -width/2)]
+        coords = rotate(base_coords, orientation)
+        coords = [(x0 + x, y0 + y) for (x0, y0) in coords]
+        return cls(cls.STAIRS, Polygon(coords), orientation)
+
+
+    def __init__(self, kind, polygon, orientation):
+        assert kind in self.__kinds
+        assert isinstance(orientation, Direction)
+        self.kind = kind
+        self.id = self._ids.next()
+
+        self.polygon = polygon
+        self.orientation = orientation
+
+        log.debug("Constructed {0}".format(self))
+
+
+    def __repr__(self):
+        return ("<Decoration {id}: {kind} oriented {dir} at {poly}>"
+                .format(id=self.id, kind=self.kind,
+                        dir=self.orientation,
+                        poly=bounds_str(self.polygon)))
+
+
+    def get_coords(self):
+        return self.polygon.exterior.coords

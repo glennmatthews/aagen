@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/env python
 # Dungeon_Generator - the Controller for our dungeon generator
 #
 # This controller class implements all of the random dungeon generation
@@ -9,7 +9,7 @@ import pygame
 import logging
 import random
 import math
-from Dungeon_Map import Dungeon_Map, Direction, Region, Connection
+from Dungeon_Map import Dungeon_Map, Direction, Region, Connection, Decoration
 from Dungeon_Display import Dungeon_Display
 from shapely.geometry.point import Point
 from shapely.geometry.linestring import LineString
@@ -53,8 +53,9 @@ class Dungeon_Generator:
         #elif roll == 4:
         #    stairs_coords = rotate(stairs_coords, -90)
         stairs = Region(Region.PASSAGE, stairs_coords)
+        stairs.add_decoration(Decoration.Stairs((5, -10), (10, 20),
+                                                Direction(Direction.N)))
         dungeon_map.add_region(stairs)
-        # TODO stairs.add_decoration(...)
 
         stairs_to_room = Connection(Connection.OPEN,
                                     [stairs_coords[0], stairs_coords[3]],
