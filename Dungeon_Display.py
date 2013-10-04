@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/env python
 # Dungeon_Display - the View for our dungeon generator
 #
 # Handles rendering of Dungeon_Map and its associated Regions and Connections.

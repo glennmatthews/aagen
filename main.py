@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/usr/bin/env python
 # main.py - the driver for our dungeon generator program
 
 import pygame
