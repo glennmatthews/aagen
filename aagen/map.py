@@ -807,7 +807,7 @@ class Candidate_Region:
         # multiple Candidate_Regions
 
         # How many existing open connections on this map would be resolved?
-        self.connections = set(connections)
+        self.connections = SortedSet(connections)
 
         # How much of the original requested area was truncated?
         self.amount_truncated = trunc
@@ -1033,8 +1033,8 @@ class Region:
             self.polygon = points_or_poly
         else:
             self.polygon = Polygon(points_or_poly)
-        self.connections = set()
-        self.decorations = set()
+        self.connections = SortedSet()
+        self.decorations = SortedSet()
 
         log.info("Constructed {0}".format(self))
 
@@ -1209,7 +1209,7 @@ class Connection:
             self.polygon = self.polygon.intersection(poly3).convex_hull
         log.info("Connection polygon is {0}".format(poly_to_str(self.polygon)))
 
-        self.regions = set()
+        self.regions = SortedSet()
         if isinstance(regions, Region):
             regions = [regions]
         for region in regions:
