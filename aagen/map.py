@@ -91,6 +91,39 @@ def rotate(points, angle):
     return output
 
 
+class SortedSet:
+    """A container class for a set of objects that is always ordered by
+    object's self-declared ID. Needed for consistent random dungeon generation.
+    """
+
+    def __init__(self, contents=None):
+        if contents is None:
+            self.set = set()
+        else:
+            self.set = set(contents)
+
+
+    def __len__(self):
+        return len(self.set)
+
+
+    def __contains__(self, item):
+        return item in self.set
+
+
+    def __iter__(self):
+        return iter(sorted(self.set, key=lambda item: item.id))
+
+
+    def add(self, item):
+        assert hasattr(item, 'id')
+        self.set.add(item)
+
+
+    def remove(self, item):
+        self.set.remove(item)
+
+
 class DungeonMap:
     """Master model class. Stores a collection of Regions and Connections"""
 
@@ -98,9 +131,9 @@ class DungeonMap:
 
     def __init__(self):
         """Initialize a new empty DungeonMap"""
-        self.regions = set()
-        self.connections = set()
-        self.decorations = set()
+        self.regions = SortedSet()
+        self.connections = SortedSet()
+        self.decorations = SortedSet()
         self.conglomerate_polygon = None
         self.id = self._ids.next()
         log.debug("Initialized {0}".format(self))
@@ -197,18 +230,18 @@ class DungeonMap:
 
 
     def get_regions(self):
-        return sorted(self.regions, key=lambda r: r.id)
+        return self.regions
 
 
     def get_connections(self):
-        return sorted(self.connections, key=lambda r: r.id)
+        return self.connections
 
     def get_incomplete_connections(self):
         return [item for item in self.get_connections() if item.is_incomplete()]
 
 
     def get_decorations(self):
-        return sorted(self.decorations, key=lambda r: r.id)
+        return self.decorations
 
 
     def find_adjacency_options(self, old_shape, new_shape, direction):
