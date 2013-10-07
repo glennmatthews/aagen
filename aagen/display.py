@@ -142,7 +142,9 @@ class DungeonDisplay:
         log.debug("Drawing Connection contents")
         for conn in self.dungeon_map.connections:
             coords = self.map_to_screen(conn.get_poly_coords())
-            if conn.kind == Connection.DOOR:
+            if (conn.kind == Connection.DOOR or
+                conn.kind == Connection.SECRET or
+                conn.kind == Connection.ONEWAY):
                 if conn.is_incomplete():
                     color = (127, 140, 127)
                 else:
