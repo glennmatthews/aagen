@@ -379,7 +379,7 @@ class DungeonMap:
                 # Make sure width matches "size" and height not too much
                 w = intersection.bounds[2] - intersection.bounds[0]
                 h = intersection.bounds[3] - intersection.bounds[1]
-                return (math.fabs(w - size) < 0.1 and h < size)
+                return (math.fabs(w - size) < 0.1 and h <= size)
             if direction[1] > 0: #north
                 def prefer(option_a, option_b):
                     return (option_a.bounds[1] > option_b.bounds[1])
@@ -396,7 +396,7 @@ class DungeonMap:
                 # Make sure height matches "size" and width not too much
                 w = intersection.bounds[2] - intersection.bounds[0]
                 h = intersection.bounds[3] - intersection.bounds[1]
-                return (math.fabs(h - size) < 0.1 and w < size)
+                return (math.fabs(h - size) < 0.1 and w <= size)
             if direction[0] < 0: #west
                 def prefer(option_a, option_b):
                     return (option_a.bounds[0] < option_b.bounds[0])
@@ -423,17 +423,29 @@ class DungeonMap:
                 # width by doing so. We then do the same from the other end,
                 # and compare the two to see which is preferred
                 coords = list(intersection.coords)
+                # Line1: delete from end, then from beginning
                 line1 = LineString(coords)
                 while (len(coords) > 1 and
                        check_width(LineString(coords), width)):
                     line1 = LineString(coords)
                     coords = coords[:-1]
+                coords = line1.coords
+                while (len(coords) > 1 and
+                       check_width(LineString(coords), width)):
+                    line1 = LineString(coords)
+                    coords = coords[1:]
+                # Line2: delete from beginning, then from end
                 coords = list(intersection.coords)
                 line2 = LineString(coords)
                 while (len(coords) > 1 and
                        check_width(LineString(coords), width)):
                     line2 = LineString(coords)
                     coords = coords[1:]
+                coords = line2.coords
+                while (len(coords) > 1 and
+                       check_width(LineString(coords), width)):
+                    line2 = LineString(coords)
+                    coords = coords[:-1]
                 log.info("Reduced intersection to {0} and {1}"
                          .format(poly_to_str(line1), poly_to_str(line2)))
                 intersection = [line1, line2]
