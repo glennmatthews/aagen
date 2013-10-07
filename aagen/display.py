@@ -44,13 +44,13 @@ class DungeonDisplay:
         """Update the display position and scale prior to drawing the map"""
         log.debug("Recalculating map display bounds")
         # Get the extent of the dungeon
-        (x0, y0, x1, y1) = self.dungeon_map.get_bounds()
+        (x0, y0, x1, y1) = self.dungeon_map.bounds
 
         # Get the extent of the surface
         if display_w is None:
             (display_w, display_h) = self.surface.get_size()
         log.debug("Base parameters are {0}, {1}"
-                  .format(self.dungeon_map.get_bounds(),
+                  .format(self.dungeon_map.bounds,
                           self.surface.get_size()))
 
         # Provide 10' of buffer around the edges of the map

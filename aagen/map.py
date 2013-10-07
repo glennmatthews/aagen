@@ -155,6 +155,12 @@ class DungeonMap:
                         self.id,
                         len(self.decorations)))
 
+    def __getattr__(self, name):
+        if name == "bounds":
+            return self.get_bounds()
+        raise AttributeError("'{0}' object has no attribute '{1}'"
+                             .format(self.__class__, name))
+
 
     def object_at(self, (x, y)):
         """Get the Connection or Region at the clicked location"""
@@ -819,9 +825,8 @@ class MapElement(object):
             return self.polygon.exterior.coords
         elif name == "bounds":
             return self.polygon.bounds
-        else:
-            raise AttributeError("'{0}' object has no attribute '{1}'"
-                                 .format(self.__class__, name))
+        raise AttributeError("'{0}' object has no attribute '{1}'"
+                             .format(self.__class__, name))
 
 
 class Candidate_Region(MapElement):
