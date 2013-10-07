@@ -98,8 +98,9 @@ class SortedSet:
 
     def __init__(self, contents=None):
         self.set = set()
-        for item in contents:
-            self.add(item)
+        if contents is not None:
+            for item in contents:
+                self.add(item)
 
 
     def __len__(self):
@@ -364,7 +365,7 @@ class DungeonMap:
         assert isinstance(region, Region) and isinstance(direction, Direction)
 
         # We find connection options by looking at the walls of the region
-        full_walls = LineString(region.get_coords())
+        full_walls = LineString(region.coords)
 
         (xmin, ymin, xmax, ymax) = full_walls.bounds
 
@@ -789,19 +790,34 @@ class Direction:
         return (self.vector[0] == 0 or self.vector[1] == 0)
 
 
-class Candidate_Region:
-    """Model class for temporary objects representing potential locations
-    for an Region"""
+class MapElement(object):
+    """Abstract parent class for any object placed onto the DungeonMap"""
 
     _ids = count(0)
 
-    def __init__(self, offset, polygon, connections, trunc, shared):
-        # The polygon that would be constructed by this region
-        assert isinstance(polygon, Polygon)
-        self.polygon = polygon
-
+    def __init__(self, polygon):
         self.id = self._ids.next()
+        if isinstance(polygon, Polygon):
+            self.polygon = polygon
+        else:
+            self.polygon = Polygon(polygon)
 
+    def __getattr__(self, name):
+        if name == "coords":
+            return self.polygon.exterior.coords
+        elif name == "bounds":
+            return self.polygon.bounds
+        else:
+            raise AttributeError("'{0}' object has no attribute '{1}'"
+                                 .format(self.__class__, name))
+
+
+class Candidate_Region(MapElement):
+    """Model class for temporary objects representing potential locations
+    for an Region"""
+
+    def __init__(self, offset, polygon, connections, trunc, shared):
+        super(Candidate_Region, self).__init__(polygon)
         # Offset of this candidate region compared to the original
         # polygon we were provided
         self.offset = offset
@@ -821,15 +837,6 @@ class Candidate_Region:
         log.debug("Constructed {0}".format(self))
 
 
-    def get_coords(self):
-        """Get the list of points defining this region's polygon"""
-        return self.polygon.exterior.coords
-
-
-    def get_bounds(self):
-        return self.polygon.bounds
-
-
     def __repr__(self):
         return ("<Candidate_Region {5}: offset {4}, poly {0}, conns {1}, "
                 "trunc {2}, shared {3}>"
@@ -838,7 +845,7 @@ class Candidate_Region:
                         self.shared_walls, self.offset, self.id))
 
 
-class Region:
+class Region(MapElement):
     """Model class. Represents a single contiguous region of the dungeon map,
     such as a room, chamber, or passage. An Region may have multiple Connections
     to other Regions."""
@@ -847,8 +854,6 @@ class Region:
     CHAMBER = "Chamber"
     PASSAGE = "Passage"
     __kinds = [ROOM, CHAMBER, PASSAGE]
-
-    _ids = count(0)
 
     @classmethod
     def sweep_corner(cls, line, base_dir, width, new_dir):
@@ -1029,13 +1034,9 @@ class Region:
         if not kind in Region.__kinds:
             raise RuntimeError("Unknown Region type '{0}'".format(kind))
 
-        self.id = self._ids.next()
+        super(Region, self).__init__(points_or_poly)
 
         self.kind = kind
-        if type(points_or_poly) is Polygon:
-            self.polygon = points_or_poly
-        else:
-            self.polygon = Polygon(points_or_poly)
         self.connections = SortedSet()
         self.decorations = SortedSet()
 
@@ -1052,16 +1053,11 @@ class Region:
                         len(self.decorations)))
 
 
-    def get_coords(self):
-        """Get the list of points defining this region's polygon"""
-        return self.polygon.exterior.coords
-
-
     def get_wall_lines(self):
         """Get the geometry (typically a LineString or MultiLineString)
         that represents the walls of this Region, excluding any sections of the
         wall that are already owned by a Connection"""
-        shape = LineString(self.get_coords())
+        shape = LineString(self.coords)
         for connection in self.connections:
             #shape = shape.difference(connection.polygon)
             shape = shape.difference(connection.line.buffer(0.1))
@@ -1124,7 +1120,7 @@ class Region:
         self.polygon = shapely.affinity.translate(self.polygon, dx, dy)
 
 
-class Connection:
+class Connection(MapElement):
     """Model class. Represents a connection between two adjacent Region objects,
     such as a door or archway. Modeled as a line segment which corresponds to
     the adjacent edge shared by the two Regions.
@@ -1153,15 +1149,11 @@ class Connection:
     ARCH = "Arch"
     __kinds = [OPEN, DOOR, SECRET, ONEWAY, ARCH]
 
-    _ids = count(0)
-
     def __init__(self, kind, line_coords, regions=set(),
                  grow_dir=None):
         """Construct a Connection along the given edge"""
         assert kind in Connection.__kinds
         self.kind = kind
-
-        self.id = self._ids.next()
 
         if isinstance(line_coords, LineString):
             self.line = line_coords
@@ -1204,12 +1196,11 @@ class Connection:
                                      10)[0])
         poly3 = Polygon(Region.sweep(self.line, self.base_direction.rotate(45),
                                      10)[0])
-
-        self.polygon = poly1
         if poly2.is_valid and poly2.area > 0:
-            self.polygon = self.polygon.intersection(poly2).convex_hull
+            poly1 = poly1.intersection(poly2).convex_hull
         if poly3.is_valid and poly3.area > 0:
-            self.polygon = self.polygon.intersection(poly3).convex_hull
+            poly1 = poly1.intersection(poly3).convex_hull
+        super(Connection, self).__init__(poly1)
         log.info("Connection polygon is {0}".format(poly_to_str(self.polygon)))
 
         self.regions = SortedSet()
@@ -1229,7 +1220,6 @@ class Connection:
             self.draw_lines = LinearRing(list(left.coords) + list(right.coords))
         else:
             self.draw_lines = None
-
 
         log.debug("Constructed {0}".format(self))
         return
@@ -1301,7 +1291,7 @@ class Connection:
         self.polygon = shapely.affinity.translate(self.polygon, dx, dy)
 
 
-class Decoration:
+class Decoration(MapElement):
     """An object that appears on the map but does not count as part of the
     physical geometry of the map like a Region would. Typically owned by
     a Region."""
@@ -1309,8 +1299,6 @@ class Decoration:
     STAIRS = "Stairs"
 
     __kinds = [STAIRS]
-
-    _ids = count(0)
 
     @classmethod
     def Stairs(cls, (x, y), (width, length), orientation):
@@ -1328,9 +1316,9 @@ class Decoration:
         assert kind in self.__kinds
         assert isinstance(orientation, Direction)
         self.kind = kind
-        self.id = self._ids.next()
 
-        self.polygon = polygon
+        super(Decoration, self).__init__(polygon)
+
         self.orientation = orientation
 
         log.debug("Constructed {0}".format(self))
@@ -1341,7 +1329,3 @@ class Decoration:
                 .format(id=self.id, kind=self.kind,
                         dir=self.orientation,
                         poly=bounds_str(self.polygon)))
-
-
-    def get_coords(self):
-        return self.polygon.exterior.coords

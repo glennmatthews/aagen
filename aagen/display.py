@@ -127,7 +127,7 @@ class DungeonDisplay:
 
         log.debug("Drawing Region contents")
         for region in self.dungeon_map.get_regions():
-            coords = self.map_to_screen(region.get_coords())
+            coords = self.map_to_screen(region.coords)
             if region.kind == Region.ROOM:
                 color = (255, 255, 240)
             elif region.kind == Region.CHAMBER:
@@ -288,7 +288,7 @@ class DungeonDisplay:
         for dec in self.dungeon_map.get_decorations():
             if dec.kind == Decoration.STAIRS:
                 pygame.draw.polygon(self.surface, (100, 100, 100),
-                                    self.map_to_screen(dec.get_coords()))
+                                    self.map_to_screen(dec.coords))
             else:
                 raise LookupError("Don't know how to draw foreground for {0}"
                                   .format(dec.kind))
