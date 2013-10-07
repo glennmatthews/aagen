@@ -97,10 +97,9 @@ class SortedSet:
     """
 
     def __init__(self, contents=None):
-        if contents is None:
-            self.set = set()
-        else:
-            self.set = set(contents)
+        self.set = set()
+        for item in contents:
+            self.add(item)
 
 
     def __len__(self):
@@ -113,6 +112,10 @@ class SortedSet:
 
     def __iter__(self):
         return iter(sorted(self.set, key=lambda item: item.id))
+
+
+    def __repr__(self):
+        return "<SortedSet: {0}>".format([item for item in self])
 
 
     def add(self, item):
