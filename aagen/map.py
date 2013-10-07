@@ -455,8 +455,9 @@ class DungeonMap:
                 valid = True
                 # Make sure it doesn't intersect any existing conns
                 for conn in region.connections:
+                    # Intersection of line and polygon...
                     if (best.intersects(conn.polygon) and
-                        not best.touches(conn.polygon)):
+                        best.intersection(conn.polygon).length > 0):
                         log.debug("Conflicts with existing conn {0}"
                                  .format(conn))
                         valid = False
