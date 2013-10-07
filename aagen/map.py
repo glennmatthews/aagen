@@ -401,7 +401,7 @@ class DungeonMap:
 
         candidates = []
         i = 0
-        while box.intersects(full_walls):
+        while box.intersects(full_walls) and not box.touches(full_walls):
             log.debug("box: {0}".format(bounds_str(box)))
             intersection = full_walls.intersection(box)
             if not isinstance(intersection, LineString):
