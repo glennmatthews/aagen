@@ -239,19 +239,8 @@ class DungeonMap:
                 region.remove_connection(connection)
 
 
-    def get_regions(self):
-        return self.regions
-
-
-    def get_connections(self):
-        return self.connections
-
     def get_incomplete_connections(self):
-        return [item for item in self.get_connections() if item.is_incomplete()]
-
-
-    def get_decorations(self):
-        return self.decorations
+        return [item for item in self.connections if item.is_incomplete()]
 
 
     def find_adjacency_options(self, old_shape, new_shape, direction):

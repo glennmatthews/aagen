@@ -637,7 +637,7 @@ class DungeonGenerator:
         (num_exits, exit_kind) = self.roll_room_exit_count(new_region)
 
         if num_exits > 0:
-            # TODO: num_exits -= len(new_region.get_connections()) ??
+            # TODO: num_exits -= len(new_region.connections) ??
             exit_base_dir = (connection.grow_direction
                              if connection.grow_direction.is_cardinal() else
                              connection.base_direction)

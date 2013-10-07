@@ -126,7 +126,7 @@ class DungeonDisplay:
         pygame.draw.rect(self.surface, (127, 127, 127), self.surface.get_rect())
 
         log.debug("Drawing Region contents")
-        for region in self.dungeon_map.get_regions():
+        for region in self.dungeon_map.regions:
             coords = self.map_to_screen(region.coords)
             if region.kind == Region.ROOM:
                 color = (255, 255, 240)
@@ -140,7 +140,7 @@ class DungeonDisplay:
             pygame.draw.polygon(self.surface, color, coords)
 
         log.debug("Drawing Connection contents")
-        for conn in self.dungeon_map.get_connections():
+        for conn in self.dungeon_map.connections:
             coords = self.map_to_screen(conn.get_poly_coords())
             if conn.kind == Connection.DOOR:
                 if conn.is_incomplete():
@@ -193,14 +193,14 @@ class DungeonDisplay:
                                                 (3, 3), (3, -3)]))
 
 
-        for region in self.dungeon_map.get_regions():
+        for region in self.dungeon_map.regions:
             coords_list = region.get_wall_coords()
             for coords in coords_list:
                 coords = self.map_to_screen(coords)
                 color = (0, 0, 0)
                 pygame.draw.lines(self.surface, color, False, coords, 2)
 
-        for conn in self.dungeon_map.get_connections():
+        for conn in self.dungeon_map.connections:
             centroid = self.map_to_screen((conn.line.centroid.x,
                                            conn.line.centroid.y))
             if True:
@@ -285,7 +285,7 @@ class DungeonDisplay:
                 raise LookupError("Don't know how to draw foreground for {0}"
                                   .format(conn.kind))
 
-        for dec in self.dungeon_map.get_decorations():
+        for dec in self.dungeon_map.decorations:
             if dec.kind == Decoration.STAIRS:
                 pygame.draw.polygon(self.surface, (100, 100, 100),
                                     self.map_to_screen(dec.coords))
