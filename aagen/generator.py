@@ -9,11 +9,10 @@ import pygame
 import logging
 import random
 import math
-from .map import DungeonMap, Direction, Region, Connection, Decoration
+from .map import DungeonMap, Region, Connection, Decoration
 from .display import DungeonDisplay
-from shapely.geometry.point import Point
-from shapely.geometry.linestring import LineString
-from shapely.geometry.polygon import Polygon
+import aagen.geometry
+from aagen.direction import Direction
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class DungeonGenerator:
 
         if seed is None:
             seed = random.randint(0, 2 ** 31)
-        log.info("Random seed is {0}".format(seed))
+        print("Random seed is {0}".format(seed))
         random.seed(seed)
 
         log.info("Adding initial entrance stairs")
@@ -453,6 +452,7 @@ class DungeonGenerator:
         log.info("Rerolling...")
         return self.generate_space_beyond_door(connection)
 
+
     def generate_side_passage(self, connection):
         print("A side passage branches off...")
         base_dir = connection.grow_direction
@@ -510,16 +510,16 @@ class DungeonGenerator:
         polygon = None
         for new_dir in dirs:
             if new_dir.name == base_dir.name:
-                (coords, new_line) = Region.sweep(connection.line, new_dir,
-                                                  new_width, base_dir,
-                                                  fixup=True)
+                (poly, new_line) = aagen.geometry.sweep(connection.line,
+                                                        new_dir, new_width,
+                                                        base_dir, fixup=True)
                 # TODO try_region_as_candidate
-                poly = Polygon(coords)
             else:
-                line_poly_list = Region.sweep_corner(connection.line, base_dir,
-                                                     new_width, new_dir)
+                line_poly_list = aagen.geometry.sweep_corner(connection.line,
+                                                             base_dir,
+                                                             new_width, new_dir)
                 # TODO choose?
-                (new_line, poly) = line_poly_list[0]
+                (poly, new_line) = line_poly_list[0]
             if polygon is None:
                 polygon = poly
             else:
@@ -593,10 +593,10 @@ class DungeonGenerator:
 
         log.info("Passage turns from {0} to {1} and becomes {2} wide"
                  .format(base_dir, new_dir, width))
-        line_poly_list = Region.sweep_corner(connection.line, base_dir,
-                                             width, new_dir)
+        line_poly_list = aagen.geometry.sweep_corner(connection.line, base_dir,
+                                                     width, new_dir)
         # TODO choose?
-        (new_line, poly) = line_poly_list[0]
+        (poly, new_line) = line_poly_list[0]
         if poly.area > 0:
             region = Region(Region.PASSAGE, poly)
             region.add_connection(connection)
@@ -753,7 +753,6 @@ class DungeonGenerator:
         # TODO force unusual rooms:
         #return self.roll_room_unusual_shape_and_size()
 
-
         if roll <= 2:
             (w, h) = (10, 10) if kind == Region.ROOM else (20, 20)
         elif roll <= 4:
@@ -776,17 +775,14 @@ class DungeonGenerator:
 
         self.print_roll(roll, "A {w}x{h} {kind}".format(w=w, h=h, kind=kind))
 
-        # Give points in counterclockwise order
-        # May be rotated by 90 degrees - return both options
-        return set([
-            ((0, 0), (0, h), (w, h), (w, 0)),
-            ((0, 0), (0, w), (h, w), (h, 0))
-        ])
+        return aagen.geometry.rectangle_set(w, h)
 
 
     def roll_room_unusual_shape_and_size(self):
 
-        # First we roll the shape:
+        # First we roll the area:
+        area = self.roll_room_unusual_size()
+
         print("Generating unusual shape...")
 
         roll = d20()
@@ -794,27 +790,27 @@ class DungeonGenerator:
         if roll <= 5:
             self.print_roll(roll, "A circle")
             # TODO pool/well/shaft
-            return self.circular_room(self.roll_room_unusual_size())
+            return aagen.geometry.circle_set(area)
             # TODO don't allow circular rooms to be truncated
         elif roll <= 8:
             self.print_roll(roll, "A triangle")
-            return self.triangular_room(self.roll_room_unusual_size())
+            return aagen.geometry.triangle_set(area)
         elif roll <= 11:
             self.print_roll(roll, "A trapezoid")
-            #return self.trapezoidal_room(self.roll_room_unusual_size())
+            return aagen.geometry.trapezoid_set(area)
         elif roll <= 13:
             self.print_roll(roll, "Something odd...")
             # TODO
         elif roll <= 15:
             self.print_roll(roll, "An oval")
-            #return self.oval_room(self.roll_room_unusual_size())
+            return aagen.geometry.oval_set(area)
             # TODO don't allow oval rooms to be truncated
         elif roll <= 17:
             self.print_roll(roll, "A hexagon")
-            #return self.hexagonal_room(self.roll_room_unusual_size())
+            return aagen.geometry.hexagon_set(area)
         elif roll <= 19:
             self.print_roll(roll, "An octagon")
-            #return self.octagonal_room(self.roll_room_unusual_size())
+            return aagen.geometry.octagon_set(area)
         else:
             self.print_roll(roll, "A cave?")
             # TODO
@@ -852,196 +848,6 @@ class DungeonGenerator:
                   .format(size="{:,}".format(size)))
 
         return size
-
-
-    def circular_room(self, area):
-        """Construct a polygon for a circular room of the requested area"""
-        # A = pi * r^2
-        # r^2 = A / pi
-        # r = sqrt (A / pi)
-        radius = math.sqrt(area / math.pi)
-        log.info("Exact radius would be {0}".format(radius))
-        # Round to the nearest multiple of 5 feet
-        radius = 5 * round(radius/5, 0)
-        log.info("Rounded radius to {0}".format(radius))
-        if radius % 10 == 0:
-            # For even radius, center around a grid intersection
-            circle = Point(0, 0).buffer(radius - 0.1)
-        else:
-            # For odd radius, center around a grid square
-            circle = Point(5, 5).buffer(radius - 0.1)
-
-        return set([tuple(circle.exterior.coords)])
-
-
-    def triangular_room(self, area):
-        # To keep the map neat, we always make isosceles right
-        # triangles (half a square)
-        ideal_size = math.sqrt(area * 2)
-        log.info("Ideal size would be {0}".format(ideal_size))
-        size = round(ideal_size, -1)
-        log.info("Rounded size to {0}".format(size))
-
-        # 4 possible rotations for a triangle
-        return set([
-            ((0, 0), (0, size), (size, 0)),
-            ((0, size), (size, size), (0, 0)),
-            ((size, size), (size, 0), (0, size)),
-            ((size, 0), (0, 0), (size, size))
-        ])
-
-
-    def trapezoidal_room(self, area):
-        # We support two kinds of trapezoids:
-        # |---\            /--\
-        # |    \    and   /    \
-        # |-----\        /------\
-        # both with nice 45 degree angles.
-        # The former has an area of a rectangle plus half a square,
-        # while the latter has an area of a rectangle plus a square
-        #
-        # To construct these, we are looking for solutions of the form:
-        # 1) area ~= h * (w + (h/2))     - for one-diagonal
-        # 2) area ~= h * (w + h)         - for two-diagonal
-        # or in other words:
-        # 1) w ~= (area / h) - h/2
-        # 2) w ~= (area / h) - h
-        # where w, h are multiples of 10
-        #
-        # In theory, these can vary widely in their aspect ratio:
-        #  w=10         h=10
-        # |-\          |----\
-        # |  \     vs. |-----\
-        # |   \
-        # |----\
-        #
-        # To keep the number of permutations reasonable, we will only consider
-        # variants where the ratio of width to height is "pleasing".
-        # This ratio is very much arbitrary and hand-tuned.
-
-        coords = set()
-        for h in range(int(10 * math.ceil(math.sqrt(area/2) / 10)),
-                       int(10 * math.ceil(math.sqrt(area * 3/2) / 10)), 10):
-            w1 = round((area / h) - (h / 2), -1)
-            w2 = round((area / h) - h, -1)
-            log.info("Candidates: one-sided {w1} x {h}, two-sided {w2} x {h}"
-                     .format(w1=w1, w2=w2, h=h))
-            # w1 is larger than w2, so if it's too small we know we're done
-            if w1 < 10:
-                break
-            if w1 >= 10:
-                # one-sided trapezoid - 8 possible orientations
-                coords.add(((0, 0), (w1, 0), (w1 + h, h), (0, h)))
-                coords.add(((0, 0), (w1 + h, 0), (w1, h), (0, h)))
-                coords.add(((h, 0), (w1 + h, 0), (w1 + h, h), (0, h)))
-                coords.add(((0, 0), (w1 + h, 0), (w1 + h, h), (h, h)))
-                coords.add(((0, 0), (h, 0), (h, w1 + h), (0, w1)))
-                coords.add(((0, 0), (h, 0), (h, w1), (0, w1 + h)))
-                coords.add(((0, h), (h, 0), (h, w1 + h), (0, w1 + h)))
-                coords.add(((0, 0), (h, h), (h, w1 + h), (0, w1 + h)))
-            if w2 >= 10:
-                # two-sided trapezoid - 4 possible orientations
-                coords.add(((h, 0), (h + w2, 0), (h + w2 + h, h), (0, h)))
-                coords.add(((0, 0), (h + w2 + h, 0), (h + w2, 0), (h, 0)))
-                coords.add(((0, h), (h, 0), (h, h + w2 + h), (0, h + w2)))
-                coords.add(((0, 0), (h, h), (h, h + w2), (0, h + w2 + h)))
-
-        return coords
-
-
-    def oval_room(self, area):
-        # Ovals are a pain to calculate and not likely to fit nicely into
-        # a map in any case. Instead, we'll construct a capsule-shaped room:
-        #  -------
-        # /       \
-        #|         |
-        # \       /
-        #  -------
-        #
-        # The area of such a room is w * h + pi * (h/2)^2
-        # or area = h * (w + (pi/4 * h))
-        #    area ~= h * (w + 0.75h)
-        #    area / h ~= w + 0.75h
-        #    w ~= area / h - 0.75h
-        #
-        # For w = h, area = 5/4 pi * h^2 ~= 4 h^2
-        # For h = 10, w ~= area/10 - 10
-        # For w = 10, area ~= a circle
-        coords = set()
-        for h in range(int(10 * math.ceil(math.sqrt(area/4) / 10)),
-                       int(10 * math.ceil(math.sqrt(area) / 10)),
-                       10):
-            w = round(area / h - ((math.pi / 4) * h), -1)
-            log.info("Candidate: {w} x {h}".format(w=w, h=h))
-            if h % 20 == 0:
-                offset = 0
-            else:
-                offset = 5
-            # Vertical room
-            line = LineString([(offset, offset), (offset, w + offset)])
-            coords.add(tuple(line.buffer(h/2, 8).exterior.coords))
-            # Horizontal room
-            line = LineString([(offset, offset), (w + offset, offset)])
-            coords.add(tuple(line.buffer(h/2, 8).exterior.coords))
-
-        return coords
-
-
-    def hexagonal_room(self, area):
-        # Our "hexagon" has 45-degree angles only:
-        #    ---
-        #   /   \
-        #   \   /
-        #    ---
-        # We start with a rectangle of size w*h then add triangles of size
-        # h/2*h to either side, so the overall area is (w*h + 2 (1/2 * h * h/2))
-        # = w * h + h^2/2. Just like the "one-sided" trapezoid above...
-
-        # The range of w/h ratios we test is arbitrary and hand-tuned to
-        # generate a reasonably small set of "pleasing" hexagons
-        coords = set()
-        for h in range(int(10 * math.ceil(math.sqrt(area * 2/3) / 10)),
-                       int(10 * math.ceil(math.sqrt(area * 3/2) / 10)), 10):
-            w = round((area / h) - (h / 2), -1)
-            if w < 10:
-                break
-            if h % 20 == 0:
-                offset = 0
-            else:
-                offset = 5
-            coords.add(((h/2 + offset, 0), (offset, h/2),
-                        (h/2 + offset, h), (h/2 + w + offset, h),
-                        (h + w + offset, h/2), (h/2 + w + offset, 0)))
-            coords.add(((0, h/2 + offset), (0, h/2 + w + offset),
-                        (h/2, h + w + offset), (h, h/2 + w + offset),
-                        (h, h/2 + offset), (h/2, offset)))
-
-        return coords
-
-
-    def octagonal_room(self, area):
-        # An "octagon" can potentially vary anywhere from:
-        # /---\        /-\
-        # |   |       /   \
-        # |   |   to  |   |
-        # |   |       \   /
-        # \---/        \-/
-        # For now we try to construct a reasonably "ideal" octagon
-        # only, but we could consider more variants later... TODO?
-
-        # Size of a square with octagon inscribed in it:
-        sq_area = area * 9 / 7
-        sq_size = math.sqrt(sq_area)
-        size = round(sq_size, -1)
-        log.info("Ideal size would be {0}, rounded to {1}"
-                 .format(sq_size, size))
-        corner_offset = 10 * math.floor(size / 30)
-        return set([
-            ((0, corner_offset), (0, size - corner_offset),
-             (corner_offset, size), (size - corner_offset, size),
-             (size, size - corner_offset), (size, corner_offset),
-             (size - corner_offset, 0), (corner_offset, 0))
-        ])
 
 
     def roll_room_exit_count(self, room):
@@ -1254,13 +1060,13 @@ class DungeonGenerator:
                         line = [(xmin, round(ymin, -1)),
                                 (xmin, round(ymax, -1))]
                         delta = xmax - xmin + (10 - math.fmod(xmin, 10))
-                    (coords, endwall) = Region.sweep(connection.line, #line,
-                                                     direction,
-                                                     length + delta,
-                                                     connection.base_direction,
-                                                     fixup=True)
+                    (polygon, endwall) = aagen.geometry.sweep(connection.line,
+                                                              direction,
+                                                              length + delta,
+                                                              connection.base_direction,
+                                                              fixup=True)
                     candidate = self.dungeon_map.try_region_as_candidate(
-                        coords, connection)
+                        polygon, connection)
                     if candidate is not None:
                         pass
                         #if not truncation and not candidate.amount_truncated > 0:
@@ -1328,7 +1134,7 @@ class DungeonGenerator:
         """Run another step of the dungeon generation algorithm, either
         starting from the specified connection or a random one"""
 
-        log.info("\n\n\n----------Step----------")
+        print("\n\n\n----------Step----------")
         log.info(self.dungeon_map)
         if connection is None:
             # Choose a connection at random

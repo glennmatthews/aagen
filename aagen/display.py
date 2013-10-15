@@ -8,11 +8,7 @@ import pygame
 import math
 
 from .map import DungeonMap, Region, Connection, Decoration
-from .map import rotate
-
-from shapely.geometry.point import Point
-from shapely.geometry.linestring import LineString
-
+from .geometry import rotate, to_string
 
 log = logging.getLogger(__name__)
 
@@ -91,7 +87,7 @@ class DungeonDisplay:
         # uses right-handed coordinates, so we flip the y axis when converting
 
         # Handle single point
-        if isinstance(coords, Point):
+        if hasattr(coords, "x") and hasattr(coords, "y"):
             return self.map_to_screen((coords.x, coords.y))
         if type(coords) is tuple:
             (x, y) = coords
@@ -102,7 +98,8 @@ class DungeonDisplay:
         for (x, y) in coords:
             output_list.append(((x - x0) * self.display_scale,
                                 (y1 - y) * self.display_scale))
-        log.debug("map {0} corresponds to screen {1}".format(coords, output_list))
+        log.debug("map {0} corresponds to screen {1}"
+                  .format(to_string(coords), to_string(output_list)))
         return output_list
 
 

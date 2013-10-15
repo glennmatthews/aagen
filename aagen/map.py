@@ -2,7 +2,7 @@
 # DungeonMap - the Model for our dungeon generator
 #
 # Represented as a collection of Regions and Connections.
-# Each Region owns a single Polygon that does not overlap any other Regions.
+# Each Region owns a single polygon that does not overlap any other Regions.
 # Each Connection straddles the border between two Regions.
 # The DungeonMap handles collision detection between Regions and so forth.
 # A Region may have one or more Decorations which are items placed on the map
@@ -18,78 +18,11 @@ import math
 import re
 from itertools import count
 
-# Geometry handling modules and classes
-import shapely.affinity
-from shapely.geometry.point import Point
-from shapely.geometry.linestring import LineString
-from shapely.geometry.multilinestring import MultiLineString
-from shapely.geometry.polygon import Polygon, LinearRing
-from shapely.geometry.multipolygon import MultiPolygon
-from shapely.geometry.collection import GeometryCollection
-from shapely.ops import cascaded_union, linemerge
-from shapely.validation import explain_validity
+import aagen.geometry
+from aagen.geometry import to_string
+from aagen.direction import Direction
 
 log = logging.getLogger(__name__)
-
-def poly_to_str(polygon):
-    """Return a shorter (less precise) representation of a polygon or similar
-    object"""
-    if polygon is None:
-        return "<None>"
-    elif isinstance(polygon, Point):
-        return "<Point (%0.1f, %0.1f)>" % (polygon.x, polygon.y)
-    elif isinstance(polygon, LineString):
-        coords = polygon.coords
-    elif isinstance(polygon, Polygon):
-        coords = polygon.exterior.coords
-    elif (isinstance(polygon, MultiLineString) or
-          isinstance(polygon, MultiPolygon) or
-          isinstance(polygon, GeometryCollection)):
-        return "; ".join([poly_to_str(g) for g in polygon.geoms])
-    elif type(polygon) is list or type(polygon) is tuple:
-        coords = polygon
-    else:
-        raise RuntimeError("poly_to_str: unknown object type {0}"
-                           .format(polygon))
-
-    str_list = [type(polygon).__name__]
-    for (x, y) in coords:
-        str_list.append("(%0.1f, %0.1f)" % (x, y))
-    return ", ".join(str_list)
-
-
-def bounds_str(polygon):
-    return ("(%0.1f, %0.1f, %0.1f, %0.1f)" % (polygon.bounds))
-
-
-def rotate(points, angle):
-    """Rotate the given vector or list of points by the given angle,
-    which can be in degrees or can be a vector itself"""
-    if type(points) is tuple:
-        # Box and unbox as list
-        return rotate([points], angle)[0]
-
-    if type(angle) is tuple:
-        # Trig has right-handed coordinates but graphics are right-handed
-        radians = math.atan2(-angle[1], angle[0])
-        log.debug("{0} is {1} radians".format(angle, radians))
-    elif isinstance(angle, Direction):
-        return rotate(points, angle.vector)
-    else:
-        radians = math.radians(angle)
-
-    output = []
-    for (x0, y0) in points:
-        (x1, y1) = (x0 * math.cos(radians) + y0 * math.sin(radians),
-                    - x0 * math.sin(radians) + y0 * math.cos(radians))
-        # Avoid accumulating error - round everything to the nearest 1/10 foot:
-        x1 = round(x1, 1)
-        y1 = round(y1, 1)
-        log.debug("({0}, {1}) rotated by {2} degrees is ({3}, {4})"
-                 .format(x0, y0, math.degrees(radians), x1, y1))
-        output.append((x1, y1))
-    return output
-
 
 class SortedSet:
     """A container class for a set of objects that is always ordered by
@@ -164,7 +97,7 @@ class DungeonMap:
 
     def object_at(self, (x, y)):
         """Get the Connection or Region at the clicked location"""
-        point = Point(x, y)
+        point = aagen.geometry.point(x, y)
         for dec in self.decorations:
             if dec.polygon.contains(point):
                 return dec
@@ -191,7 +124,7 @@ class DungeonMap:
             log.info("Adding Region ({0}) to {1}".format(region, self))
             self.regions.add(region)
             polygons = set([r.polygon for r in self.regions])
-            self.conglomerate_polygon = cascaded_union(polygons)
+            self.conglomerate_polygon = aagen.geometry.union(polygons)
             for decoration in region.decorations:
                 self.add_decoration(decoration)
             for connection in region.connections:
@@ -352,7 +285,7 @@ class DungeonMap:
         of the given size along the given edge of the given region).
         If new_only is set then only positions leading to new (unmapped) space
         will be considered as valid.
-        Returns a list of LineStrings."""
+        Returns a list of line segments."""
 
         log.info("Finding options for a connection (width {0}) adjacent to "
                  "{1} in {2}".format(width, region, direction))
@@ -360,14 +293,16 @@ class DungeonMap:
         assert isinstance(region, Region) and isinstance(direction, Direction)
 
         # We find connection options by looking at the walls of the region
-        full_walls = LineString(region.coords)
+        full_walls = aagen.geometry.line_loop(region.coords)
+        log.debug("full_walls: {0}".format(to_string(full_walls)))
 
         (xmin, ymin, xmax, ymax) = full_walls.bounds
+        log.debug("bounds: {0}".format(aagen.geometry.bounds_str(full_walls)))
 
         if math.fabs(direction[1]) > 0.01: # north/south
-            box = shapely.geometry.box(xmin, ymin, xmin + width, ymax)
+            box = aagen.geometry.box(xmin, ymin, xmin + width, ymax)
             offset = (10, 0)
-            def check_width(intersection, width):
+            def check_width(intersection):
                 w = intersection.bounds[2] - intersection.bounds[0]
                 return w == width
             def check_size(intersection, size):
@@ -382,9 +317,9 @@ class DungeonMap:
                 def prefer(option_a, option_b):
                     return (option_a.bounds[3] < option_b.bounds[3])
         elif math.fabs(direction[0]) > 0.01: # east/west
-            box = shapely.geometry.box(xmin, ymin, xmax, ymin + width)
+            box = aagen.geometry.box(xmin, ymin, xmax, ymin + width)
             offset = (0, 10)
-            def check_width(intersection, width):
+            def check_width(intersection):
                 h = intersection.bounds[3] - intersection.bounds[1]
                 return h == width
             def check_size(intersection, size):
@@ -399,16 +334,15 @@ class DungeonMap:
                 def prefer(option_a, option_b):
                     return (option_a.bounds[2] > option_b.bounds[2])
 
+        log.debug("box: {0}, offset: {1}".format(to_string(box), offset))
         candidates = []
         i = 0
-        while box.intersects(full_walls) and not box.touches(full_walls):
-            log.debug("box: {0}".format(bounds_str(box)))
-            intersection = full_walls.intersection(box)
-            if not isinstance(intersection, LineString):
-                intersection = linemerge(intersection)
-            log.debug("intersection: {0}".format(poly_to_str(intersection)))
+        while aagen.geometry.intersect(box, full_walls).length > 0:
+            log.debug("box: {0}".format(aagen.geometry.bounds_str(box)))
+            intersection = aagen.geometry.intersect(box, full_walls)
+            log.debug("intersection: {0}".format(to_string(intersection)))
             best = None
-            if isinstance(intersection, LineString):
+            if not hasattr(intersection, "geoms"):
                 # We must be tangent to an edge of the polygon, since our
                 # intersection has both "front" and "back" in a single
                 # segment. In this case we need to trim the segment down
@@ -417,33 +351,8 @@ class DungeonMap:
                 # until we cannot do so without decreasing the intersection
                 # width by doing so. We then do the same from the other end,
                 # and compare the two to see which is preferred
-                coords = list(intersection.coords)
-                # Line1: delete from end, then from beginning
-                line1 = LineString(coords)
-                while (len(coords) > 1 and
-                       check_width(LineString(coords), width)):
-                    line1 = LineString(coords)
-                    coords = coords[:-1]
-                coords = line1.coords
-                while (len(coords) > 1 and
-                       check_width(LineString(coords), width)):
-                    line1 = LineString(coords)
-                    coords = coords[1:]
-                # Line2: delete from beginning, then from end
-                coords = list(intersection.coords)
-                line2 = LineString(coords)
-                while (len(coords) > 1 and
-                       check_width(LineString(coords), width)):
-                    line2 = LineString(coords)
-                    coords = coords[1:]
-                coords = line2.coords
-                while (len(coords) > 1 and
-                       check_width(LineString(coords), width)):
-                    line2 = LineString(coords)
-                    coords = coords[:-1]
-                log.info("Reduced intersection to {0} and {1}"
-                         .format(poly_to_str(line1), poly_to_str(line2)))
-                intersection = [line1, line2]
+                intersection = aagen.geometry.minimize_line(intersection,
+                                                            check_width)
             for linestring in intersection:
                 if check_size(linestring, width):
                     if best is None:
@@ -451,7 +360,8 @@ class DungeonMap:
                     elif prefer(linestring, best):
                         best = linestring
             if best is not None:
-                log.debug("Found section: {0}".format(bounds_str(best)))
+                log.debug("Found section: {0}"
+                          .format(aagen.geometry.bounds_str(best)))
                 valid = True
                 # Make sure it doesn't intersect any existing conns
                 for conn in region.connections:
@@ -477,7 +387,7 @@ class DungeonMap:
                 if valid:
                     candidates.append(best)
             i += 1
-            box = shapely.affinity.translate(box, *offset)
+            box = aagen.geometry.translate(box, *offset)
 
         log.info("{0} candidate positions were identified after inspecting "
                  "{1} possibilities"
@@ -500,7 +410,7 @@ class DungeonMap:
 
         log.info("Looking for positional options for region {0} "
                  "adjacent to {1} in {2}"
-                 .format([poly_to_str(c) for c in coords_set],
+                 .format([to_string(c) for c in coords_set],
                          connection, direction))
 
         # Our approach is as follows:
@@ -513,7 +423,7 @@ class DungeonMap:
         # Repeat as many times as needed
 
         (obj_x0, obj_y0, obj_x1, obj_y1) = connection.polygon.bounds
-        conn_box = shapely.geometry.box(*(connection.polygon.bounds))
+        conn_box = aagen.geometry.box(*(connection.polygon.bounds))
         (dir_x, dir_y) = direction
 
         log.info("Adjacency direction is {0},{1}".format(dir_x, dir_y))
@@ -522,9 +432,9 @@ class DungeonMap:
         i = 0
         for coords in coords_set:
             log.info("Looking for positional options for {0}"
-                     .format(poly_to_str(coords)))
+                     .format(to_string(coords)))
 
-            polygon = Polygon(coords)
+            polygon = aagen.geometry.polygon(coords)
             (new_x0, new_y0, new_x1, new_y1) = polygon.bounds
 
             ((x0, y0),
@@ -534,8 +444,8 @@ class DungeonMap:
 
             # Try each possible position where the bounding boxes intersect
             (px, py) = (0, 0)
-            while (shapely.geometry.box(new_x0 + x0 + px, new_y0 + y0 + py,
-                                        new_x1 + x0 + px, new_y1 + y0 + py)
+            while (aagen.geometry.box(new_x0 + x0 + px, new_y0 + y0 + py,
+                                      new_x1 + x0 + px, new_y1 + y0 + py)
                    .intersects(conn_box)):
                 log.debug("px, py: {0}, {1}".format(px, py))
                 if math.fabs(dir_y) > 0.01 and (new_x0 + x0 + px) > obj_x0:
@@ -549,15 +459,15 @@ class DungeonMap:
                 # shape intersects (a hit!) or the bounding boxes no longer
                 # intersect (a miss!)
                 (sx, sy) = (0, 0)
-                while (shapely.geometry.box(new_x0 + x0 + px + sx,
-                                            new_y0 + y0 + py + sy,
-                                            new_x1 + x0 + px + sx,
-                                            new_y1 + y0 + py + sy)
+                while (aagen.geometry.box(new_x0 + x0 + px + sx,
+                                          new_y0 + y0 + py + sy,
+                                          new_x1 + x0 + px + sx,
+                                          new_y1 + y0 + py + sy)
                        .intersects(conn_box)):
                     i += 1
                     (dx, dy) = (x0 + px + sx, y0 + py + sy)
                     log.debug("dx, dy: {0}, {1}".format(dx, dy))
-                    test_polygon = shapely.affinity.translate(polygon, dx, dy)
+                    test_polygon = aagen.geometry.translate(polygon, dx, dy)
                     # TODO try_region_as_candidate
                     try:
                         intersection = test_polygon.intersection(connection.polygon)
@@ -571,8 +481,9 @@ class DungeonMap:
                         test_polygon = test_polygon.union(connection.polygon)
                         # See how much the polygon will be truncated by
                         # the existing dungeon map
-                        trim_polygon = self.trim_to_fit(test_polygon,
-                                                        connection.polygon)
+                        trim_polygon = aagen.geometry.trim(test_polygon,
+                                                           self.conglomerate_polygon,
+                                                           connection.polygon)
                         if trim_polygon is not None:
                             cr = self.make_candidate_region((dx, dy),
                                                             test_polygon,
@@ -600,65 +511,18 @@ class DungeonMap:
 
 
     def try_region_as_candidate(self, coords_or_polygon, connection):
-        if isinstance(coords_or_polygon, Polygon):
-            polygon = coords_or_polygon
-        else:
-            polygon = Polygon(coords_or_polygon)
+        polygon = aagen.geometry.polygon(coords_or_polygon)
         log.info("Trying {0} as candidate against {1}"
-                 .format(poly_to_str(polygon), connection))
+                 .format(to_string(polygon), connection))
 
         # See how much the polygon will be truncated by the existing map
-        trim_polygon = self.trim_to_fit(polygon, connection.polygon)
+        trim_polygon = aagen.geometry.trim(polygon, self.conglomerate_polygon,
+                                           connection.polygon)
         if trim_polygon is not None:
             return self.make_candidate_region((0, 0), polygon, trim_polygon)
         else:
-            log.info("{0} trimmed to nothing!".format(poly_to_str(polygon)))
+            log.info("{0} trimmed to nothing!".format(to_string(polygon)))
             return None
-
-
-    def trim_to_fit(self, polygon, adjacent):
-        """Trim the given polygon as needed to keep it from colliding with
-        the existing geometry of the map. If the polygon is split into multiple
-        regions by this trimming, keep only the region adjacent to the given
-        adjacent shape. Returns the resulting contiguous polygon."""
-
-        if not (isinstance(polygon, Polygon) or
-                isinstance(polygon, MultiPolygon) or
-                isinstance(polygon, GeometryCollection)):
-            raise TypeError("polygon is {0}".format(type(polygon)))
-
-        try:
-            difference = polygon.difference(self.conglomerate_polygon)
-        except:
-            log.warning("Difference operation failed!")
-            return None
-        if not difference.is_valid:
-            log.warning("Difference produced invalid object: {0}"
-                        .format(difference.is_valid_reason()))
-            return None
-        match = None
-        # Handle the case where the polygon was split by existing geometry:
-        if (type(difference) is GeometryCollection or
-            type(difference) is MultiPolygon):
-            log.debug("Trimming polygon split it into {0} pieces"
-                      .format(len(difference.geoms)))
-            for geom in difference.geoms:
-                if type(geom) is Polygon:
-                    if geom.intersects(adjacent):
-                        match = geom
-                        break
-        elif type(difference) is Polygon:
-            if difference.intersects(adjacent):
-                match = difference
-
-        if match is not None:
-            log.debug("Trimmed polygon to fit")
-            #match = match.simplify(0.1)
-            # TODO? force all coordinates in match to snap to 1' grid
-        else:
-            log.debug("After trimming, polygon is nonexistent")
-
-        return match
 
 
     def make_candidate_region(self, offset, base_polygon, trim_polygon):
@@ -690,114 +554,6 @@ class DungeonMap:
                                 amount_truncated, shared_walls)
 
 
-class Direction:
-    """Model class representing a compass direction (orthogonal or diagonal)
-    in the dungeon."""
-
-    N = "north"
-    NW = "northwest"
-    W = "west"
-    SW = "southwest"
-    S = "south"
-    SE = "southeast"
-    E = "east"
-    NE = "northeast"
-
-    diag_len = math.sqrt(2) / 2
-
-    name_to_vector = {
-        N: (0, 1),
-        NW: (-diag_len, diag_len),
-        W: (-1, 0),
-        SW: (-diag_len, -diag_len),
-        S: (0, -1),
-        SE: (diag_len, -diag_len),
-        E: (1, 0),
-        NE: (diag_len, diag_len)
-    }
-
-    @classmethod
-    def CARDINAL(cls):
-        return [Direction(cls.N), Direction(cls.W),
-                Direction(cls.S), Direction(cls.E)]
-
-
-    def __init__(self, name=None, vector=None, baseline=None, degrees=None):
-        """Construct a Direction from one of the following:
-        - a name such as "north"
-        - a direction vector such as (0, 1) (north)
-        - a baseline to construct a direction normal to
-        - an angle in degrees (with 0 being East)
-        """
-        if name is not None:
-            self.name = name
-            self.vector = self.name_to_vector[name]
-            self.degrees = math.degrees(math.atan2(self.vector[1],
-                                                   self.vector[0]))
-        elif vector is not None:
-            (x, y) = vector
-            factor = math.sqrt(x ** 2 + y ** 2)
-            degrees = math.degrees(math.atan2(y / factor, x / factor))
-            return self.__init__(degrees=degrees)
-        elif baseline is not None:
-            if isinstance(baseline, LineString):
-                baseline = baseline.coords
-            (x0, y0) = baseline[0]
-            (x1, y1) = baseline[-1]
-            return self.__init__(vector=(y1 - y0, x0 - x1))
-        elif degrees is not None:
-            # Snap to grid
-            self.degrees = round(degrees/45, 0) * 45
-            radians = math.radians(self.degrees)
-            (x, y) = (math.cos(radians), math.sin(radians))
-            if math.fabs(x) < 0.0001:
-                x = 0
-            if math.fabs(y) < 0.0001:
-                y = 0
-            self.vector = (x, y)
-            name = ""
-            if y > 0:
-                name += "north"
-            elif y < 0:
-                name += "south"
-            if x > 0:
-                name += "east"
-            elif x < 0:
-                name += "west"
-            self.name = name
-        else:
-            raise RuntimeError("Must specify a value!")
-
-        log.debug("Constructed {0}".format(self))
-
-
-    def __getitem__(self, index):
-        return self.vector[index]
-
-
-    def __repr__(self):
-        return("<Direction: {name}>" #({angle}, {vector})>"
-               .format(name=self.name, angle=self.degrees, vector=self.vector))
-
-
-    def rotate(self, degrees):
-        """Construct a new Direction relative to this one"""
-        return Direction(degrees=(self.degrees + degrees))
-
-
-    def angle_from(self, other):
-        """Magnitute of the angle between two Directions"""
-        angle = math.fabs(self.degrees - other.degrees)
-        if angle > 180:
-            angle = 360 - angle
-        log.debug("Angle from {0} to {1} is {2}".format(self, other, angle))
-        return angle
-
-
-    def is_cardinal(self):
-        return (self.vector[0] == 0 or self.vector[1] == 0)
-
-
 class MapElement(object):
     """Abstract parent class for any object placed onto the DungeonMap"""
 
@@ -805,10 +561,7 @@ class MapElement(object):
 
     def __init__(self, polygon):
         self.id = self._ids.next()
-        if isinstance(polygon, Polygon):
-            self.polygon = polygon
-        else:
-            self.polygon = Polygon(polygon)
+        self.polygon = aagen.geometry.polygon(polygon)
 
     def __getattr__(self, name):
         if name == "coords":
@@ -847,7 +600,7 @@ class Candidate_Region(MapElement):
     def __repr__(self):
         return ("<Candidate_Region {5}: offset {4}, poly {0}, conns {1}, "
                 "trunc {2}, shared {3}>"
-                .format(poly_to_str(self.polygon), self.connections,
+                .format(to_string(self.polygon), self.connections,
                         self.amount_truncated,
                         self.shared_walls, self.offset, self.id))
 
@@ -861,179 +614,6 @@ class Region(MapElement):
     CHAMBER = "Chamber"
     PASSAGE = "Passage"
     __kinds = [ROOM, CHAMBER, PASSAGE]
-
-    @classmethod
-    def sweep_corner(cls, line, base_dir, width, new_dir):
-        """Constructs a polygon by sweeping the given line around the given
-        corner. When diagonal directions are involved, there may be multiple
-        candidates. Returns a list of (end_line, polygon) pairs.
-        """
-        assert (isinstance(base_dir, Direction) and
-                isinstance(new_dir, Direction))
-
-        log.info("Sweeping corner from {0} to {1}".format(base_dir, new_dir))
-
-        (x0, y0, x1, y1) = line.bounds
-
-        new_lines = []
-        if base_dir.name == new_dir.name:
-            # Just fix up to the grid
-            if base_dir.name == "north":
-                line1 = LineString([(x0, math.ceil(y1/10) * 10),
-                                    (x1, math.ceil(y1/10) * 10)])
-            elif base_dir.name == "west":
-                line1 = LineString([(math.floor(x0/10) * 10, y0),
-                                    (math.floor(x0/10) * 10, y1)])
-            elif base_dir.name == "south":
-                line1 = LineString([(x0, math.floor(y0/10) * 10),
-                                    (x1, math.floor(y0/10) * 10)])
-            elif base_dir.name == "east":
-                line1 = LineString([(math.ceil(x1/10) * 10, y0),
-                                    (math.ceil(x1/10) * 10, y1)])
-            else:
-                # Try whichever cardinal direction(s) have the correct
-                # size:
-                candidates = []
-                for possible_dir in [new_dir.rotate(-45), new_dir.rotate(45)]:
-                    if (possible_dir.name == "west" or
-                        possible_dir.name == "east"):
-                        if (y1 - y0) >= (x1 - x0):
-                            candidates += cls.sweep_corner(line, base_dir,
-                                                           width, possible_dir)
-                    else:
-                        if (x1 - x0) >= (y1 - y0):
-                            candidates += cls.sweep_corner(line, base_dir,
-                                                           width, possible_dir)
-                return candidates
-                #return (cls.sweep_corner(line, base_dir, width,
-                #                         new_dir.rotate(-45)) +
-                #        cls.sweep_corner(line, base_dir, width,
-                #                         new_dir.rotate(45)))
-
-            poly = cls.polygon_between_lines(line, line1)
-            log.info("Swept {0} from {1} to {2} resulting in {3}"
-                     .format(poly_to_str(line), base_dir, new_dir,
-                             poly_to_str(poly)))
-            return [(line1, poly)]
-
-        elif base_dir.is_cardinal() and new_dir.angle_from(base_dir) <= 45:
-            # Sweeping a diagonal from a component cardinal - stay cardinal
-            return cls.sweep_corner(line, base_dir, width, base_dir)
-        elif new_dir.is_cardinal() and base_dir.angle_from(new_dir) <= 45:
-            # Sweeping a cardinal from a diagonal - become cardinal
-            return cls.sweep_corner(line, new_dir, width, new_dir)
-        else:
-            # We'll need to sweep more than once...
-            if base_dir.is_cardinal():
-                # Snap to grid
-                [(line1, poly1)] = cls.sweep_corner(line, base_dir, width,
-                                                    base_dir)
-                # Extrude to form the corner
-                (coords, throwaway) = cls.sweep(line1, base_dir, width)
-                poly2 = Polygon(coords)
-                (x0, y0, x1, y1) = poly2.bounds
-                if (re.search("north", new_dir.name) and
-                    base_dir.name != "south"):
-                    line2 = LineString(((x0, y1), (x1, y1)))
-                elif (re.search("west", new_dir.name) and
-                      base_dir.name != "east"):
-                    line2 = LineString(((x0, y0), (x0, y1)))
-                elif (re.search("south", new_dir.name) and
-                      base_dir.name != "north"):
-                    line2 = LineString(((x0, y0), (x1, y0)))
-                elif (re.search("east", new_dir.name) and
-                      base_dir.name != "west"):
-                    line2 = LineString(((x1, y0), (x1, y1)))
-                else:
-                    raise RuntimeError("Don't know how to sweep {0} from {1}"
-                                       .format(new_dir, base_dir))
-            else:
-                (left, right) = (base_dir.rotate(45), base_dir.rotate(-45))
-                log.info("Deciding whether to sweep from {0} to {1} or {2}"
-                         .format(base_dir, left, right))
-                if left.angle_from(new_dir) < right.angle_from(new_dir):
-                    mid_dir = left
-                else:
-                    mid_dir = right
-                [(line1, poly1)] = cls.sweep_corner(line, base_dir, width,
-                                                    mid_dir)
-                [(line2, poly2)] = cls.sweep_corner(line1, mid_dir, width,
-                                                    new_dir)
-
-            log.info("line1 {0}, poly1 {1}, line2 {2}, poly2 {3}"
-                     .format(poly_to_str(line1), poly_to_str(poly1),
-                             poly_to_str(line2), poly_to_str(poly2)))
-            return [(line2, poly2.union(poly1))]
-
-
-    @classmethod
-    def sweep(cls, line, dir, distance, base_dir=None, fixup=False):
-        """Returns a coordinate set constructed by sweeping the given line
-        in the given direction for the given distance, plus the endpoint set.
-
-        If fixup is set to true, will do any intermediate work needed to fix
-        the given line to the appropriate grid line before sweeping."""
-
-        assert isinstance(dir, Direction)
-        (dx, dy) = dir.vector
-
-        # line can be a LineString object or simply a list of coords
-        if isinstance(line, LineString):
-            line1 = line
-        else:
-            line1 = LineString(line)
-
-        poly1 = None
-        if fixup:
-            line_poly_list = cls.sweep_corner(line1, base_dir, 10, # TODO width
-                                              dir)
-            (line1, poly1) = line_poly_list[0] # TODO
-
-        line2 = shapely.affinity.translate(line1,
-                                           round(dx * distance, -1),
-                                           round(dy * distance, -1))
-
-        poly2 = cls.polygon_between_lines(line1, line2)
-        if poly1 is not None:
-            poly2 = poly2.union(poly1)
-        output = list(poly2.exterior.coords)
-
-        log.debug("Swept polygon from {0} in {1} by {2}: {3}"
-                  .format(poly_to_str(line1), (dx, dy), distance,
-                          poly_to_str(output)))
-        return (output, line2)
-
-
-    @classmethod
-    def polygon_between_lines(cls, line1, line2):
-        """Construct a polygon between the two given lines"""
-        log.debug("Constructing polygon between {0} and {1}"
-                  .format(poly_to_str(line1), poly_to_str(line2)))
-        if line1.contains(line2):
-            return line1
-        elif line2.contains(line1):
-            return line2
-
-        if isinstance(line1, LineString):
-            line1 = line1.coords
-        if isinstance(line2, LineString):
-            line2 = line2.coords
-
-        poly1 = Polygon(list(line1) + list(line2))
-        if not poly1.is_valid:
-            poly2 = Polygon(list(line1) + list(reversed(list(line2))))
-
-            if not poly2.is_valid:
-                raise RuntimeError("Neither {0} nor {1} is valid: {2}, {3}"
-                                   .format(poly_to_str(poly1),
-                                           poly_to_str(poly2),
-                                           explain_validity(poly1),
-                                           explain_validity(poly2)))
-
-            poly1 = poly2
-
-        return poly1
-
 
     def __init__(self, kind, points_or_poly):
         """Construct a new Region."""
@@ -1053,7 +633,7 @@ class Region(MapElement):
     def __repr__(self):
         return ("<Region {4}: {0} in {1} (area {2}) with {3} connections "
                 "and {5} decorations>"
-                .format(self.kind, bounds_str(self.polygon),
+                .format(self.kind, aagen.geometry.bounds_str(self.polygon),
                         self.polygon.area,
                         len(self.connections),
                         self.id,
@@ -1061,12 +641,12 @@ class Region(MapElement):
 
 
     def get_wall_lines(self):
-        """Get the geometry (typically a LineString or MultiLineString)
-        that represents the walls of this Region, excluding any sections of the
-        wall that are already owned by a Connection"""
-        shape = LineString(self.coords)
+        """Get the geometry that represents the walls of this Region,
+        excluding any sections of the wall that are already owned by a
+        Connection"""
+        shape = aagen.geometry.line(self.coords)
         for connection in self.connections:
-            #shape = shape.difference(connection.polygon)
+            #TODO shape = shape.difference(connection.polygon)
             shape = shape.difference(connection.line.buffer(0.1))
         return shape
 
@@ -1075,17 +655,9 @@ class Region(MapElement):
         """Same as get_wall_lines() but returns a list of lists of points
         instead of a geometry object"""
         shape = self.get_wall_lines()
-        coords_list = []
-        if shape.is_empty:
+        coords_list = aagen.geometry.lines_to_coords(shape)
+        if not coords_list:
             log.info("Room has no open walls at all?")
-            return coords_list
-        elif isinstance(shape, LineString):
-            coords_list.append(list(shape.coords))
-        elif isinstance(shape, MultiLineString):
-            for geom in shape.geoms:
-                coords_list.append(list(geom.coords))
-        else:
-            raise RuntimeError("Unexpected shape {0}".format(shape))
         log.debug("{0} has walls: {1}".format(self, coords_list))
         return coords_list
 
@@ -1116,15 +688,6 @@ class Region(MapElement):
         assert isinstance(decoration, Decoration)
         self.decorations.add(decoration)
         log.debug("Added ({0}) to ({1})".format(decoration, self))
-
-
-    def move(self, dx, dy):
-        """Relocate this Region"""
-        if len(self.connections) > 0:
-            raise RuntimeError("Can't move an Region ({0}) with Connections!"
-                               .format(self))
-        log.debug("Moving ({0}) by ({1}, {2})".format(self, dx, dy))
-        self.polygon = shapely.affinity.translate(self.polygon, dx, dy)
 
 
 class Connection(MapElement):
@@ -1162,15 +725,12 @@ class Connection(MapElement):
         assert kind in Connection.__kinds
         self.kind = kind
 
-        if isinstance(line_coords, LineString):
-            self.line = line_coords
-            line_coords = (self.line.coords[0], self.line.coords[-1])
-        else:
-            self.line = LineString(line_coords)
+        self.line = aagen.geometry.line(line_coords)
+        line_coords = (self.line.coords[0], self.line.coords[-1])
         assert self.line.length > 0
 
         log.info("Creating Connection ({kind}) along {line}"
-                 .format(kind=kind, line=poly_to_str(self.line)))
+                 .format(kind=kind, line=to_string(self.line)))
 
         # The "base direction" of a connection is a unit direction
         # perpendicular to its base line
@@ -1197,18 +757,21 @@ class Connection(MapElement):
                                                     self.grow_direction,
                                                     angle))
 
-        poly1 = Polygon(Region.sweep(self.line, self.base_direction, 10)[0])
+        (poly1, junk) = aagen.geometry.sweep(self.line,
+                                             self.base_direction, 10)
         assert poly1.is_valid
-        poly2 = Polygon(Region.sweep(self.line, self.base_direction.rotate(-45),
-                                     10)[0])
-        poly3 = Polygon(Region.sweep(self.line, self.base_direction.rotate(45),
-                                     10)[0])
+        (poly2, junk) = aagen.geometry.sweep(self.line,
+                                             self.base_direction.rotate(-45),
+                                             10)
+        (poly3, junk) = aagen.geometry.sweep(self.line,
+                                             self.base_direction.rotate(45),
+                                             10)
         if poly2.is_valid and poly2.area > 0:
             poly1 = poly1.intersection(poly2).convex_hull
         if poly3.is_valid and poly3.area > 0:
             poly1 = poly1.intersection(poly3).convex_hull
         super(Connection, self).__init__(poly1)
-        log.info("Connection polygon is {0}".format(poly_to_str(self.polygon)))
+        log.info("Connection polygon is {0}".format(to_string(self.polygon)))
 
         self.regions = SortedSet()
         if isinstance(regions, Region):
@@ -1221,10 +784,11 @@ class Connection(MapElement):
         if kind == Connection.DOOR:
             start = self.line.interpolate(2)
             end = self.line.interpolate(self.line.length - 2)
-            sub_line = LineString([(start.x, start.y), (end.x, end.y)])
+            sub_line = aagen.geometry.line([(start.x, start.y), (end.x, end.y)])
             left = sub_line.parallel_offset(2, 'left')
             right = sub_line.parallel_offset(2, 'right')
-            self.draw_lines = LinearRing(list(left.coords) + list(right.coords))
+            self.draw_lines = aagen.geometry.line_loop(list(left.coords) +
+                                                       list(right.coords))
         else:
             self.draw_lines = None
 
@@ -1235,7 +799,7 @@ class Connection(MapElement):
     def __repr__(self):
         return ("<Connection {id}: {kind} at {loc} to {base}/{dir}>"
                 .format(id=self.id, kind=self.kind,
-                        loc=bounds_str(self.polygon),
+                        loc=aagen.geometry.bounds_str(self.polygon),
                         areas=self.regions, base=self.base_direction,
                         dir=self.grow_direction))
 
@@ -1267,11 +831,11 @@ class Connection(MapElement):
 
             # Fix up any funky edges... TODO
             #if not self.polygon.intersects(region.polygon):
-            #    extension = Polygon(Region.sweep(self.base_line,
+            #    extension = aagen.geometry.sweep(self.base_line,
             #                                     self.grow_direction, 10))
             #    if not extension.intersects(region.polygon):
             #        # Try growing in the reverse direction
-            #        extension = Polygon(Region.sweep(self.base_line,
+            #        extension = aagen.geometry.sweep(self.base_line,
             #                                         self.grow_direction, -10))
             #    if not extension.intersects(region.polygon):
             #        raise RuntimeError("Connection {0} !adjacent to region {1}"
@@ -1288,16 +852,6 @@ class Connection(MapElement):
             region.add_connection(self)
 
 
-    def move(self, dx, dy):
-        """Relocate this Connection"""
-        if len(self.regions) > 0:
-            raise RuntimeError("Can't move Connection ({0}) that has Regions!"
-                               .format(self))
-        log.debug("Moving ({0}) by ({1}, {2})".format(self, dx, dy))
-        self.line = shapely.affinity.translate(self.line, dx, dy)
-        self.polygon = shapely.affinity.translate(self.polygon, dx, dy)
-
-
 class Decoration(MapElement):
     """An object that appears on the map but does not count as part of the
     physical geometry of the map like a Region would. Typically owned by
@@ -1312,11 +866,11 @@ class Decoration(MapElement):
         """Construct a Stairs decoration with the given center, size,
         and orientation"""
         # An isosceles triangle with height="length" and base="width"
-        base_coords = [(length/2, 0), (-length/2, width/2),
-                       (-length/2, -width/2)]
-        coords = rotate(base_coords, orientation)
-        coords = [(x0 + x, y0 + y) for (x0, y0) in coords]
-        return cls(cls.STAIRS, Polygon(coords), orientation)
+        poly = aagen.geometry.polygon([(length/2, 0), (-length/2, width/2),
+                                       (-length/2, -width/2)])
+        poly = aagen.geometry.rotate(poly, orientation)
+        poly = aagen.geometry.translate(poly, x, y)
+        return cls(cls.STAIRS, poly, orientation)
 
 
     def __init__(self, kind, polygon, orientation):
@@ -1335,4 +889,4 @@ class Decoration(MapElement):
         return ("<Decoration {id}: {kind} oriented {dir} at {poly}>"
                 .format(id=self.id, kind=self.kind,
                         dir=self.orientation,
-                        poly=bounds_str(self.polygon)))
+                        poly=aagen.geometry.bounds_str(self.polygon)))
