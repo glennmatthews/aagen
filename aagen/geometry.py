@@ -292,27 +292,29 @@ def loft(lines):
             poly = line1
         elif line2.contains(line1):
             poly = line2
-        elif line1.touches(line2):
+        elif line1.boundary.intersects(line2.boundary):
+            log.debug("The two lines share an endpoint - merging them")
             poly1 = Polygon(shapely.ops.linemerge([line1, line2]))
             if poly1.is_valid:
                 poly = poly1
-        else:
-            poly1 = (Polygon(list(line1.coords) + list(reversed(line2.coords)))
-                     .buffer(0))
+
+        if poly is None:
+            poly1 = (Polygon(list(line1.coords) + list(reversed(line2.coords))))
             if poly1.is_valid:
                 poly = poly1
-            else:
-                poly2 = (Polygon(list(line1.coords) + list(line2.coords))
-                         .buffer(0))
-                if poly2.is_valid:
-                    poly = poly2
-                else:
-                    raise RuntimeError("Neither\n{0}\nnor\n{1}\nis valid: "
-                                       "\n{2}\n{3}"
-                                       .format(to_string(poly1),
-                                               to_string(poly2),
-                                               explain_validity(poly1),
-                                               explain_validity(poly2)))
+
+        if poly is None:
+            poly1 = (Polygon(list(line1.coords) + list(line2.coords)))
+            if poly1.is_valid:
+                poly = poly1
+
+        if poly is None:
+            log.warning("Unable to loft intuitively between {0} and {1}"
+                        .format(to_string(line1), to_string(line2)))
+            poly1 = line1.union(line2).convex_hull
+            if poly1.is_valid:
+                poly = poly1
+
         log.debug("Constructed {0}".format(to_string(poly)))
         if poly is not None:
             poly_set.add(poly)
@@ -411,8 +413,8 @@ def minimize_line(base_line, validator):
         coords = coords[:-1]
     line2 = line(coords)
 
-    print("Minimized line {0} to {1} and {2}"
-          .format(to_string(base_line), to_string(line1), to_string(line2)))
+    log.debug("Minimized line {0} to {1} and {2}"
+              .format(to_string(base_line), to_string(line1), to_string(line2)))
     return [line1, line2]
 
 
