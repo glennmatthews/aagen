@@ -67,37 +67,37 @@ def main():
     dungeon_display.draw()
 
     running = True
+    done = False
 
-    while running:
+    while not done:
         clock.tick(10)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                done = True
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    running = False
+                    done = True
                 elif event.key == pygame.K_SPACE:
-                    try:
-                        dungeon_generator.step()
-                    # If things break, hang so we can debug while
-                    # still seeing the screen...
-                    except Exception as e:
-                        print (e)
-                        traceback.print_exc()
-                        break
-                    dungeon_display.draw()
+                    if running:
+                        try:
+                            dungeon_generator.step()
+                        except Exception as e:
+                            print (e)
+                            traceback.print_exc()
+                            running = False
+                        dungeon_display.draw()
                 elif event.key == pygame.K_w:
                     with open("current.aamap", 'w') as f:
                         json.dump(dungeon_map, f,
                                   cls=MapEncoder, indent=2, sort_keys=True)
-                    print("Done!")
                 elif event.key == pygame.K_l:
                     with open("current.aamap", 'r') as f:
                         dungeon_map = json.load(f, object_hook=map_from_dict)
                     dungeon_display = DungeonDisplay(dungeon_map)
                     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
                     dungeon_display.draw()
+                    running = True
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
                 dungeon_display.draw()
@@ -108,27 +108,6 @@ def main():
                     print(object)
 
     log.info("Done!")
-
-    # If we got here without intentionally quitting
-    # (i.e., an exception occurred), keep displaying the map
-    # until the user intentionally quits.
-    while running:
-        clock.tick(10)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-            elif event.type == pygame.VIDEORESIZE:
-                dungeon_display.resize_display((event.w, event.h))
-                dungeon_display.draw()
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:
-                    (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
-                    object = dungeon_map.object_at((click_x, click_y))
-                    print(object)
 
     pygame.quit()
 
