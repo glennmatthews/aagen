@@ -22,11 +22,18 @@ Use
 ---
 
 If you run the program with no parameters, it will generate a new random
-dungeon. On the console you will see various informational and debug messages.
+dungeon. There are also some "starting regions" in the maps directory; if you
+would like to use one of these instead of starting with a blank slate, launch
+aagen with the `-f` option:
+
+    aagen -f maps/starting_area_1.aamap
+
+
+As aagen runs, on the console you will see various informational and debug messages.
 One of the first messages output to the console will report the "seed" that was
 used to generate this dungeon:
 
-    INFO:aagen.generator:Random seed is 1201576528
+    Random seed is 1201576528
 
 If you want to recreate the same dungeon again, you can launch the program with
 `aagen -s <seed number>` and the exact same dungeon will be generated as
@@ -35,10 +42,18 @@ before (barring any changes to the dungeon generation algorithms, of course!).
 **This is key when reporting bugs - please provide the seed number under which
 the bug was encountered so as to make it very easy to recreate the issue!**
 
+Click on any part of the map to print information about the clicked region to the console.
+
 Press `SPACE` to iterate another step of the dungeon generator, constructing a
 new room or passage and adding it to the map. If the map dead-ends completely
 with no possibilities for adding new regions, pressing `SPACE` will cause a new
-map to be created. Press `ESC` twice to quit the program.
+map to be created.
+
+Press `w` to write the current map state to disk as `current.aamap`.
+
+Press `l' to load `current.aamap`, replacing the current map state.
+
+Press `ESC` or close the map window to quit the program.
 
 If an error occurs, the error will be reported on your console and the program
 will "freeze", continuing to display the current state of the map but refusing

@@ -88,6 +88,7 @@ class DungeonMap:
                         self.id,
                         len(self.decorations)))
 
+
     def __getattr__(self, name):
         if name == "bounds":
             return self.get_bounds()
@@ -157,8 +158,9 @@ class DungeonMap:
             for region in self.regions:
                 log.debug("Checking {0} for intersection with {1}"
                           .format(connection, region))
-                if (connection.polygon.intersects(region.polygon) and
-                    not connection.polygon.touches(region.polygon)):
+                if (region.polygon.intersection(connection.line).equals(connection.line) or
+                    (connection.polygon.intersects(region.polygon) and
+                     not connection.polygon.touches(region.polygon))):
                     # TODO fix up any funky edges
                     region.add_connection(connection)
 
@@ -718,7 +720,7 @@ class Connection(MapElement):
     ARCH = "Arch"
     __kinds = [OPEN, DOOR, SECRET, ONEWAY, ARCH]
 
-    def __init__(self, kind, line_coords, regions=set(),
+    def __init__(self, kind, line_coords, regions=None,
                  grow_dir=None):
         """Construct a Connection along the given edge"""
         assert kind in Connection.__kinds
@@ -773,11 +775,12 @@ class Connection(MapElement):
         log.info("Connection polygon is {0}".format(to_string(self.polygon)))
 
         self.regions = SortedSet()
-        if isinstance(regions, Region):
-            regions = [regions]
-        for region in regions:
-            self.add_region(region)
-            region.add_connection(self)
+        if regions is not None:
+            if isinstance(regions, Region):
+                regions = [regions]
+            for region in regions:
+                self.add_region(region)
+                region.add_connection(self)
 
         # Add helper polygons for drawing
         if kind == Connection.DOOR:

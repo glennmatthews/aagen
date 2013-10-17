@@ -3,6 +3,7 @@
 import logging
 import math
 import re
+import ast
 
 from aagen.direction import Direction
 
@@ -28,7 +29,8 @@ def to_string(geometry):
     elif hasattr(geometry, "is_empty") and geometry.is_empty:
         return "<{0} (empty)>".format(type(geometry).__name__)
     elif isinstance(geometry, Point):
-        return "<Point (%0.1f, %0.1f)>" % (geometry.x, geometry.y)
+        return "<Point ({0}, {1})>".format(numstr(geometry.x),
+                                           numstr(geometry.y))
     elif isinstance(geometry, LineString):
         coords = geometry.coords
     elif isinstance(geometry, Polygon):
@@ -49,14 +51,28 @@ def to_string(geometry):
 
     str_list = []
     for (x, y) in coords:
-        str_list.append("(%0.1f, %0.1f)" % (x, y))
-    return "<{0} {1}>".format(type(geometry).__name__,
+        str_list.append("({0}, {1})".format(numstr(x), numstr(y)))
+    return "<{0}: [{1}]>".format(type(geometry).__name__,
                               ", ".join(str_list))
+
+
+def from_string(string):
+    """Convert a string representation back to a list of coordinates"""
+    string = string.lstrip("<").rstrip(">")
+    (kind, coords_str) = string.split(":")
+    coords = ast.literal_eval(coords_str.strip())
+    return globals()[kind](coords)
 
 
 def bounds_str(geometry):
     """Returns a brief representation of the bounding box of an object"""
-    return ("(%0.1f, %0.1f, %0.1f, %0.1f)" % (geometry.bounds))
+    return ("({0})".format(", ".join([numstr(x) for x in geometry.bounds])))
+
+
+def numstr(value):
+    """Converts a number to a string with no trailing zeros"""
+    return ('%0.2f' % value).rstrip('0').rstrip('.')
+
 
 
 # Geometric manipulation

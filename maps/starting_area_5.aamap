@@ -1,0 +1,112 @@
+{
+  "__type__": "DungeonMap", 
+  "connections": [
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Open", 
+      "line": "<LineString: [(0, 0), (10, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Door", 
+      "line": "<LineString: [(-10, 40), (0, 40)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Door", 
+      "line": "<LineString: [(10, 40), (20, 40)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Arch", 
+      "line": "<LineString: [(-5, 10), (-10, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Open", 
+      "line": "<LineString: [(-60, 10), (-60, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Open", 
+      "line": "<LineString: [(-30, -10), (-40, -10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Arch", 
+      "line": "<LineString: [(20, 20), (15, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Open", 
+      "line": "<LineString: [(70, 20), (70, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Open", 
+      "line": "<LineString: [(50, -10), (40, -10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Arch", 
+      "line": "<LineString: [(10, 40), (0, 40)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "northeast", 
+      "kind": "Open", 
+      "line": "<LineString: [(20, 120), (30, 120)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "northwest", 
+      "kind": "Open", 
+      "line": "<LineString: [(-20, 120), (-10, 120)]>"
+    }
+  ], 
+  "decorations": [
+    {
+      "__type__": "Decoration", 
+      "kind": "Stairs", 
+      "orientation": "north", 
+      "polygon": "<Polygon: [(5, 0), (0, -20), (10, -20), (5, 0)]>"
+    }
+  ], 
+  "regions": [
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(0, 0), (0, -20), (10, -20), (10, 0), (0, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Chamber", 
+      "polygon": "<Polygon: [(0, 0), (10, 0), (30, 40), (-20, 40), (0, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(-5, 10), (-10, 20), (-60, 20), (-60, 10), (-40, 10), (-40, -10), (-30, -10), (-30, 10), (-5, 10)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(15, 10), (20, 20), (70, 20), (70, 10), (50, 10), (50, -10), (40, -10), (40, 10), (15, 10)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(0, 40), (10, 40), (10, 100), (30, 120), (20, 120), (10, 110), (0, 110), (-10, 120), (-20, 120), (0, 100), (0, 40)]>"
+    }
+  ]
+}

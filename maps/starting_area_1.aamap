@@ -1,0 +1,206 @@
+{
+  "__type__": "DungeonMap", 
+  "connections": [
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Open", 
+      "line": "<LineString: [(0, 0), (10, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Arch", 
+      "line": "<LineString: [(10, 30), (0, 30)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Open", 
+      "line": "<LineString: [(10, 50), (0, 50)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Arch", 
+      "line": "<LineString: [(-10, 20), (-10, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Arch", 
+      "line": "<LineString: [(-30, 20), (-30, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Door", 
+      "line": "<LineString: [(-50, 30), (-40, 30)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Arch", 
+      "line": "<LineString: [(-60, 20), (-60, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Open", 
+      "line": "<LineString: [(-80, 20), (-80, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Arch", 
+      "line": "<LineString: [(-40, 0), (-30, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Open", 
+      "line": "<LineString: [(-40, -20), (-30, -20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Arch", 
+      "line": "<LineString: [(-60, 0), (-50, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "southwest", 
+      "kind": "Open", 
+      "line": "<LineString: [(-70, -50), (-80, -50)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Arch", 
+      "line": "<LineString: [(20, 10), (20, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Arch", 
+      "line": "<LineString: [(40, 10), (40, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Door", 
+      "line": "<LineString: [(60, 30), (50, 30)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Arch", 
+      "line": "<LineString: [(70, 10), (70, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Open", 
+      "line": "<LineString: [(90, 10), (90, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Arch", 
+      "line": "<LineString: [(40, 0), (50, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Open", 
+      "line": "<LineString: [(40, -20), (50, -20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "south", 
+      "kind": "Arch", 
+      "line": "<LineString: [(60, 0), (70, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "southeast", 
+      "kind": "Open", 
+      "line": "<LineString: [(80, -50), (90, -50)]>"
+    }
+  ], 
+  "decorations": [
+    {
+      "__type__": "Decoration", 
+      "kind": "Stairs", 
+      "orientation": "north", 
+      "polygon": "<Polygon: [(5, 0), (0, -20), (10, -20), (5, 0)]>"
+    }
+  ], 
+  "regions": [
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(0, 0), (0, -20), (10, -20), (10, 0), (0, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Chamber", 
+      "polygon": "<Polygon: [(-10, 0), (20, 0), (20, 30), (-10, 30), (-10, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(0, 30), (10, 30), (10, 50), (0, 50), (0, 30)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(-10, 10), (-10, 20), (-30, 20), (-30, 10), (-10, 10)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Chamber", 
+      "polygon": "<Polygon: [(-30, 0), (-30, 30), (-60, 30), (-60, 0), (-30, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(-60, 10), (-60, 20), (-80, 20), (-80, 10), (-60, 10)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(-30, 0), (-40, 0), (-40, -20), (-30, -20), (-30, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(-50, 0), (-60, 0), (-60, -30), (-80, -50), (-70, -50), (-50, -30), (-50, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(20, 10), (20, 20), (40, 20), (40, 10), (20, 10)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Chamber", 
+      "polygon": "<Polygon: [(40, 0), (40, 30), (70, 30), (70, 0), (40, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(70, 10), (70, 20), (90, 20), (90, 10), (70, 10)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(40, 0), (50, 0), (50, -20), (40, -20), (40, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(60, 0), (70, 0), (70, -30), (90, -50), (80, -50), (60, -30), (60, 0)]>"
+    }
+  ]
+}

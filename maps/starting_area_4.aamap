@@ -1,0 +1,61 @@
+{
+  "__type__": "DungeonMap", 
+  "connections": [
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Open", 
+      "line": "<LineString: [(0, 0), (10, 0)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Door", 
+      "line": "<LineString: [(-10, 10), (-10, 20)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Door", 
+      "line": "<LineString: [(20, 20), (20, 10)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "west", 
+      "kind": "Door", 
+      "line": "<LineString: [(-10, 30), (-10, 40)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "east", 
+      "kind": "Door", 
+      "line": "<LineString: [(20, 40), (20, 30)]>"
+    }, 
+    {
+      "__type__": "Connection", 
+      "grow_direction": "north", 
+      "kind": "Door", 
+      "line": "<LineString: [(0, 50), (10, 50)]>"
+    }
+  ], 
+  "decorations": [
+    {
+      "__type__": "Decoration", 
+      "kind": "Stairs", 
+      "orientation": "north", 
+      "polygon": "<Polygon: [(5, 0), (0, -20), (10, -20), (5, 0)]>"
+    }
+  ], 
+  "regions": [
+    {
+      "__type__": "Region", 
+      "kind": "Passage", 
+      "polygon": "<Polygon: [(0, 0), (0, -20), (10, -20), (10, 0), (0, 0)]>"
+    }, 
+    {
+      "__type__": "Region", 
+      "kind": "Chamber", 
+      "polygon": "<Polygon: [(-10, 0), (20, 0), (20, 50), (-10, 50), (-10, 0)]>"
+    }
+  ]
+}

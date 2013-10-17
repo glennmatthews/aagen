@@ -33,13 +33,19 @@ class DungeonGenerator:
 
     def __init__(self, dungeon_map, seed=None):
         self.dungeon_map = dungeon_map
-        dungeon_map.__init__()
 
         if seed is None:
             seed = random.randint(0, 2 ** 31)
         print("Random seed is {0}".format(seed))
         random.seed(seed)
 
+        log.info("Initialized {0}".format(self))
+
+        if len(self.dungeon_map.regions) != 0:
+            print("Using existing map.")
+            return
+
+        print("Generating new dungeon!")
         log.info("Adding initial entrance stairs")
         stairs_coords = [(0, 0), (0, -20), (10, -20), (10, 0)]
         roll = d4()
@@ -60,292 +66,8 @@ class DungeonGenerator:
                                     [stairs_coords[0], stairs_coords[3]],
                                     [stairs], (0, 1))
         dungeon_map.add_connection(stairs_to_room)
-
-        if False: # TODO
-            print("Using a pre-defined 'starting area'")
-
-            roll = random.randint(1,5)
-            print("Using area {0}".format(roll))
-
-            if roll == 1:
-                #         O
-                #    d    O    d
-                #   OOO  OOO  OOO
-                # OOOOOOOOOOOOOOOOO
-                #   OOO  OOO  OOO
-                #   O O   s   O O
-                #   O O   s   O O
-                #   O           O
-                #  //           \\
-                # //             \\
-                #
-                r1 = Region(Region.CHAMBER,
-                            [(-10, 0), (20, 0), (20, 30), (-10, 30)])
-                # passage to the north
-                hall = Region(Region.PASSAGE,
-                              [(0, 30), (10, 30), (10, 50), (0, 50)])
-                conn = Connection(Connection.ARCH,
-                                  [(10, 30), (0, 30)], [r1, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(10, 50), (0, 50)], hall)
-                #west passage between two rooms
-                hall = Region(Region.PASSAGE,
-                              [(-10, 10), (-10, 20), (-30, 20), (-30, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(-10, 20), (-10, 10)], [r1, hall])
-                # west room
-                r2 = Region(Region.CHAMBER,
-                            [(-30, 0), (-30, 30), (-60, 30), (-60, 0)])
-                conn = Connection(Connection.ARCH,
-                                  [(-30, 20), (-30, 10)], [r2, hall])
-                # exits from west room
-                conn = Connection(Connection.DOOR,
-                                  [(-50, 30), (-40, 30)], r2, (0, 1))
-                hall = Region(Region.PASSAGE,
-                              [(-60, 10), (-60, 20), (-80, 20), (-80, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(-60, 20), (-60, 10)], [r2, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(-80, 20), (-80, 10)], hall)
-                hall = Region(Region.PASSAGE,
-                              [(-30, 0), (-40, 0), (-40, -20), (-30, -20)])
-                conn = Connection(Connection.ARCH,
-                                  [(-40, 0), (-30, 0)], [r2, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(-40, -20), (-30, -20)], hall)
-                hall = Region(Region.PASSAGE,
-                              [(-50, 0), (-60, 0), (-60, -30), (-80, -50),
-                               (-70, -50), (-50, -30), (-50, 0)])
-                conn = Connection(Connection.ARCH,
-                                  [(-60, 0), (-50, 0)], [r2, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(-70, -50), (-80, -50)], hall,
-                                  #adj_dir=(0, -1),
-                                  grow_dir=(-1, -1))
-                # east passage between two rooms
-                hall = Region(Region.PASSAGE,
-                              [(20, 10), (20, 20), (40, 20), (40, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(20, 10), (20, 20)], [r1, hall])
-                # east room
-                r3 = Region(Region.CHAMBER,
-                            [(40, 0), (40, 30), (70, 30), (70, 0)])
-                conn = Connection(Connection.ARCH,
-                                  [(40, 10), (40, 20)], [r3, hall])
-                # exits from east room
-                conn = Connection(Connection.DOOR,
-                                  [(60, 30), (50, 30)], r3)
-                hall = Region(Region.PASSAGE,
-                              [(70, 10), (70, 20), (90, 20), (90, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(70, 10), (70, 20)], [r3, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(90, 10), (90, 20)], hall)
-                hall = Region(Region.PASSAGE,
-                              [(40, 0), (50, 0), (50, -20), (40, -20)])
-                conn = Connection(Connection.ARCH,
-                                  [(40, 0), (50, 0)], [r3, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(40, -20), (50, -20)], hall)
-                hall = Region(Region.PASSAGE,
-                              [(60, 0), (70, 0), (70, -30), (90, -50),
-                               (80, -50), (60, -30), (60, 0)])
-                conn = Connection(Connection.ARCH,
-                                  [(60, 0), (70, 0)], [r3, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(80, -50), (90, -50)], hall,
-                                  #adj_dir=(0, -1),
-                                  grow_dir=(1, -1))
-
-            elif roll == 2:
-                #    O   d   O
-                #    O  OOO  O
-                #dOOOOOOOOOOOOOOOd
-                #    O  OOO  O
-                #    O   s   O
-
-                # main room
-                r1 = Region(Region.CHAMBER,
-                            [(-10, 0), (20, 0), (20, 30), (-10, 30)])
-                conn = Connection(Connection.DOOR,
-                                  [(0, 30), (10, 30)], r1, (0, 1))
-                # west passages
-                hall = Region(Region.PASSAGE,
-                              [(-10, 10), (-10, 20),
-                               (-30, 20), (-30, 40), (-40, 40), (-40, 20),
-                               (-70, 20), (-70, 10),
-                               (-40, 10), (-40, -10), (-30, -10), (-30, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(-10, 10), (-10, 20)], [r1, hall])
-                conn = Connection(Connection.DOOR,
-                                  [(-70, 10), (-70, 20)], hall, (-1, 0))
-                conn = Connection(Connection.OPEN,
-                                  [(-40, 40), (-30, 40)], hall, (0, 1))
-                conn = Connection(Connection.OPEN,
-                                  [(-30, -10), (-40, -10)], hall, (0, -1))
-                # east passages
-                hall = Region(Region.PASSAGE,
-                              [(20, 10), (20, 20),
-                               (40, 20), (40, 40), (50, 40), (50, 20),
-                               (80, 20), (80, 10),
-                               (50, 10), (50, -10), (40, -10), (40, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(20, 20), (20, 10)], [r1, hall])
-                conn = Connection(Connection.DOOR,
-                                  [(80, 20), (80, 10)], hall, (1, 0))
-                conn = Connection(Connection.OPEN,
-                                  [(40, 40), (50, 40)], hall, (0, 1))
-                conn = Connection(Connection.OPEN,
-                                  [(50, -10), (40, -10)], hall, (0, -1))
-
-            elif roll == 3:
-                #  O      O
-                #  O      O
-                #OOO  dd  OOO
-                #  \\ OO //
-                #   \\Od//
-                #    \OO/
-                #    <OO>
-                #  OOOOOOOO
-                #     sd
-                #     s
-                r1 = Region(Region.CHAMBER,
-                            [(0,0), (20, 0),
-                             (20, 10), (25, 15), (20, 20),
-                             (20, 30), (0, 30),
-                             (0, 20), (-5, 15), (0, 10)])
-                conn = Connection(Connection.DOOR,
-                                  [(20, 0), (10, 0)], r1, (0, -1))
-                # North room
-                r2 = Region(Region.ROOM,
-                            [(0, 30), (20, 30), (20, 50), (0, 50)])
-                conn = Connection(Connection.DOOR,
-                                  [(20, 30), (10, 30)], [r1, r2])
-                conn = Connection(Connection.DOOR,
-                                  [(10, 50), (0, 50)], r2)
-                conn = Connection(Connection.DOOR,
-                                  [(20, 50), (10, 50)], r2)
-                # Passages from main room
-                hall = Region(Region.PASSAGE,
-                              [(0, 0), (0, 10), (-30, 10), (-30, 0)])
-                conn = Connection(Connection.ARCH,
-                                  [(0, 10), (0, 0)], [r1, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(-30, 0), (-30, 10)], hall, (-1, 0))
-                hall = Region(Region.PASSAGE,
-                              [(20, 0), (20, 10), (50, 10), (50, 0)])
-                conn = Connection(Connection.ARCH,
-                                  [(20, 0), (20, 10)], [r1, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(50, 10), (50, 0)], hall, (1, 0))
-                # Northwest passage
-                hall = Region(Region.PASSAGE,
-                              [(0, 20), (0, 30), (-20, 50), (-20, 80),
-                               (-30, 80), (-30, 60), (-50, 60), (-50, 50),
-                               (-30, 50)])
-                conn = Connection(Connection.ARCH,
-                                  [(0, 30), (0, 20)], [r1, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(-30, 80), (-20, 80)], hall, (0, 1))
-                conn = Connection(Connection.OPEN,
-                                  [(-50, 50), (-50, 60)], hall, (-1, 0))
-                # Northeast passage
-                hall = Region(Region.PASSAGE,
-                              [(20, 20), (20, 30), (40, 50), (40, 80),
-                               (50, 80), (50, 60), (70, 60), (70, 50),
-                               (50, 50)])
-                conn = Connection(Connection.ARCH,
-                                  [(20, 20), (20, 30)], [r1, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(40, 80), (50, 80)], hall, (0, 1))
-                conn = Connection(Connection.OPEN,
-                                  [(70, 60), (70, 50)], hall, (1, 0))
-
-            elif roll == 4:
-                #   d
-                #  OOO
-                # dOOOd
-                #  OOO
-                # dOOOd
-                #  OOO
-                #   s
-                r1 = Region(Region.CHAMBER, # TODO?
-                            [(-10, 0), (20, 0), (20, 50), (-10, 50)])
-                conn = Connection(Connection.DOOR,
-                                  [(-10, 10), (-10, 20)], r1, (-1, 0))
-                conn = Connection(Connection.DOOR,
-                                  [(20, 20), (20, 10)], r1, (1, 0))
-                conn = Connection(Connection.DOOR,
-                                  [(-10, 30), (-10, 40)], r1, (-1, 0))
-                conn = Connection(Connection.DOOR,
-                                  [(20, 40), (20, 30)], r1, (1, 0))
-                conn = Connection(Connection.DOOR,
-                                  [(0, 50), (10, 50)], r1, (0, 1))
-
-            else: # roll == 5
-                #     \\ //
-                #      \O/
-                #       O
-                #       O
-                #       O
-                #       O
-                #       O
-                #      dOd
-                #     OOOOO
-                #     \OOO/
-                # OOOOOOOOOOOOO
-                #   O  \O/  O
-                #   O   s   O
-                r1 = Region(Region.CHAMBER,
-                            [(0, 0), (10, 0), (30, 40), (-20, 40)])
-                conn = Connection(Connection.DOOR,
-                                  [(-10, 40), (0, 40)], r1, (0, 1))
-                conn = Connection(Connection.DOOR,
-                                  [(10, 40), (20, 40)], r1, (0, 1))
-                # west halls
-                hall = Region(Region.PASSAGE,
-                              [(-5, 10), (-10, 20), (-60, 20), (-60, 10),
-                               (-40, 10), (-40, -10), (-30, -10), (-30, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(-5, 10), (-10, 20)], [r1, hall], (-1, 0))
-                conn = Connection(Connection.OPEN,
-                                  [(-60, 10), (-60, 20)], hall, (-1, 0))
-                conn = Connection(Connection.OPEN,
-                                  [(-30, -10), (-40, -10)], hall, (0, -1))
-                # east halls
-                hall = Region(Region.PASSAGE,
-                              [(15, 10), (20, 20), (70, 20), (70, 10),
-                               (50, 10), (50, -10), (40, -10), (40, 10)])
-                conn = Connection(Connection.ARCH,
-                                  [(20, 20), (15, 10)], [r1, hall], (1, 0))
-                conn = Connection(Connection.OPEN,
-                                  [(70, 20), (70, 10)], hall, (1, 0))
-                conn = Connection(Connection.OPEN,
-                                  [(50, -10), (40, -10)], hall, (0, -1))
-                # north hall
-                hall = Region(Region.PASSAGE,
-                              [(0, 40), (10, 40), (10, 100),
-                               (30, 120), (20, 120), (10, 110),
-                               (0, 110), (-10, 120), (-20, 120),
-                               (0, 100)])
-                conn = Connection(Connection.ARCH,
-                                  [(10, 40), (0, 40)], [r1, hall])
-                conn = Connection(Connection.OPEN,
-                                  [(20, 120), (30, 120)], hall,
-                                  #adj_dir=(0, 1),
-                                  grow_dir=(1, 1))
-                conn = Connection(Connection.OPEN,
-                                  [(-20, 120), (-10, 120)], hall,
-                                  #adj_dir=(0, 1),
-                                  grow_dir=(-1, 1))
-
-            r1.add_connection(stairs_to_room)
-            self.dungeon_map.add_region(r1)
-        else:
-            log.info("Adding initial random room adjacent to stairs")
-            self.generate_room(Region.ROOM, stairs_to_room)
-
-        log.info("Initialized {0}".format(self))
+        log.info("Adding initial random room adjacent to stairs")
+        self.generate_room(Region.ROOM, stairs_to_room)
 
 
     def __str__(self):
@@ -1140,6 +862,7 @@ class DungeonGenerator:
             options = self.dungeon_map.get_incomplete_connections()
             if (len(options) == 0):
                 log.warning("Resetting map!")
+                self.dungeon_map.__init__()
                 self.__init__(self.dungeon_map)
                 return
             connection = random.choice(options)
