@@ -221,7 +221,6 @@ def sweep_corner(line, old_dir, width, new_dir):
         # line itself was diagonal, or whether it had already been cardinally
         # oriented.
         (line_w, line_h) = (x1 - x0, y1 - y0)
-        print("w: {0}, h: {1}, new_dir: {2}".format(line_w, line_h, new_dir.vector))
         if ((new_dir.vector[0] == 0 and line_w > 0) or
             (new_dir.vector[1] == 0 and line_h > 0)):
             #  old = NE,
@@ -246,7 +245,7 @@ def sweep_corner(line, old_dir, width, new_dir):
             #        ==>  / |
             #  ---        ---
             #
-            print("Need to pivot 90 degrees...")
+            log.debug("Need to pivot 90 degrees...")
             # Snap to grid if not already there...
             [(poly1, line1)] = sweep_corner(line, old_dir, width, old_dir)
             (new_x0, new_y0, new_x1, new_y1) = line1.bounds
