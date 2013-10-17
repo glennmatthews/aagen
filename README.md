@@ -51,7 +51,7 @@ map to be created.
 
 Press `w` to write the current map state to disk as `current.aamap`.
 
-Press `l' to load `current.aamap`, replacing the current map state.
+Press `l` to load `current.aamap`, replacing the current map state.
 
 Press `ESC` or close the map window to quit the program.
 
