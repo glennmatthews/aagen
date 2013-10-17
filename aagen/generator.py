@@ -61,7 +61,6 @@ class DungeonGenerator:
                                     [stairs], (0, 1))
         dungeon_map.add_connection(stairs_to_room)
 
-
         if False: # TODO
             print("Using a pre-defined 'starting area'")
 
@@ -614,15 +613,15 @@ class DungeonGenerator:
         assert isinstance(connection, Connection)
 
         while shape is None:
-            print("Rolling for shape and size of a room...")
+            print("Generating a random room...")
 
             # Roll on Table V:
-            base_points_set = self.roll_room_shape_and_size(kind)
-            log.info("Set contains {0} different rooms"
-                     .format(len(base_points_set)))
+            polygons = self.roll_room_shape_and_size(kind)
+            log.info("Set contains {0} different shapes"
+                     .format(len(polygons)))
 
             candidate_regions = self.dungeon_map.find_options_for_region(
-                base_points_set, connection)
+                polygons, connection)
             selected_region = self.select_best_candidate(candidate_regions)
             if selected_region.amount_truncated > 0:
                 print("Room is truncated a bit... oh well")
@@ -746,7 +745,7 @@ class DungeonGenerator:
     def roll_room_shape_and_size(self, kind):
         """Roll a random shape and size for a Room or Chamber.
         Returns a set of sequences of polygon coordinates"""
-        print("Rolling shape and size for a {0}".format(kind))
+        print("Rolling shape and size for a {0} (d20)".format(kind))
 
         roll = d20()
 
@@ -775,7 +774,7 @@ class DungeonGenerator:
 
         self.print_roll(roll, "A {w}x{h} {kind}".format(w=w, h=h, kind=kind))
 
-        return aagen.geometry.rectangle_set(w, h)
+        return aagen.geometry.rectangle_list(w, h)
 
 
     def roll_room_unusual_shape_and_size(self):
@@ -783,34 +782,34 @@ class DungeonGenerator:
         # First we roll the area:
         area = self.roll_room_unusual_size()
 
-        print("Generating unusual shape...")
+        print("Generating unusual shape (d20)...")
 
         roll = d20()
 
         if roll <= 5:
             self.print_roll(roll, "A circle")
             # TODO pool/well/shaft
-            return aagen.geometry.circle_set(area)
+            return aagen.geometry.circle_list(area)
             # TODO don't allow circular rooms to be truncated
         elif roll <= 8:
             self.print_roll(roll, "A triangle")
-            return aagen.geometry.triangle_set(area)
+            return aagen.geometry.triangle_list(area)
         elif roll <= 11:
             self.print_roll(roll, "A trapezoid")
-            return aagen.geometry.trapezoid_set(area)
+            return aagen.geometry.trapezoid_list(area)
         elif roll <= 13:
             self.print_roll(roll, "Something odd...")
             # TODO
         elif roll <= 15:
             self.print_roll(roll, "An oval")
-            return aagen.geometry.oval_set(area)
+            return aagen.geometry.oval_list(area)
             # TODO don't allow oval rooms to be truncated
         elif roll <= 17:
             self.print_roll(roll, "A hexagon")
-            return aagen.geometry.hexagon_set(area)
+            return aagen.geometry.hexagon_list(area)
         elif roll <= 19:
             self.print_roll(roll, "An octagon")
-            return aagen.geometry.octagon_set(area)
+            return aagen.geometry.octagon_list(area)
         else:
             self.print_roll(roll, "A cave?")
             # TODO
@@ -820,7 +819,7 @@ class DungeonGenerator:
 
 
     def roll_room_unusual_size(self):
-        print("Generating unusual room size...")
+        print("Generating unusual room size (d20)...")
 
         roll = d20()
 

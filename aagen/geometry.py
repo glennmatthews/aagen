@@ -479,19 +479,18 @@ def box(xmin, ymin, xmax, ymax):
     return shapely.geometry.box(xmin, ymin, xmax, ymax)
 
 
-def rectangle_set(width, height):
-    """Construct a set of 2 (for rectangles) or 1 (for squares) rectangles
+def rectangle_list(width, height):
+    """Construct a list of 2 (for rectangles) or 1 (for squares) rectangles
     constrained to the grid with the given width and height.
     """
 
-    rect_set = set()
     rect = polygon([(0, 0), (width, 0), (width, height), (0, height)])
-    rect_set.add(rect)
+    rect_list = [rect]
     if width != height:
         rect = shapely.affinity.rotate(rect, 90, origin=(0,0))
-        rect_set.add(rect)
+        rect_list.append(rect)
 
-    return rect_set
+    return rect_list
 
 
 def circle(area):
@@ -513,8 +512,8 @@ def circle(area):
     return circle
 
 
-def circle_set(area):
-    return set([circle(area)])
+def circle_list(area):
+    return [circle(area)]
 
 
 def isosceles_right_triangle(area):
@@ -529,20 +528,20 @@ def isosceles_right_triangle(area):
     return polygon([(0, 0), (size, 0), (0, size)])
 
 
-def triangle_set(area):
-    """Returns the set of possible right triangles (each orientation)
+def triangle_list(area):
+    """Returns the list of possible right triangles (each orientation)
     with approximately the requested area.
     """
 
     triangle = isosceles_right_triangle(area)
-    return set([triangle,
-                shapely.affinity.rotate(triangle, 90),
-                shapely.affinity.rotate(triangle, 180),
-                shapely.affinity.rotate(triangle, 270)])
+    return [triangle,
+            shapely.affinity.rotate(triangle, 90),
+            shapely.affinity.rotate(triangle, 180),
+            shapely.affinity.rotate(triangle, 270)]
 
 
-def trapezoid_set(area):
-    """Returns a set of possible trapezoids (various height/width ratios,
+def trapezoid_list(area):
+    """Returns a list of possible trapezoids (various height/width ratios,
     various orientations) with approximately the requested area.
 
     We support two kinds of trapezoids:
@@ -563,7 +562,7 @@ def trapezoid_set(area):
     This ratio is very much arbitrary and hand-tuned.
     """
 
-    trapezoids = set()
+    trapezoids = []
     for h in range(int(10 * math.ceil(math.sqrt(area/2) / 10)),
                    int(10 * math.ceil(math.sqrt(area * 3/2) / 10)), 10):
         w1 = round((area / h) - (h / 2), -1)
@@ -576,37 +575,37 @@ def trapezoid_set(area):
         if w1 >= 10:
             # one-sided trapezoid - 8 possible orientations
             trapezoid = polygon([(0, 0), (w1, 0), (w1 + h, h), (0, h)])
-            trapezoids.add(trapezoid)
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 90,
-                                                   origin=(0, 0)))
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 180,
-                                                   origin=(0, 0)))
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 270,
-                                                   origin=(0, 0)))
+            trapezoids.append(trapezoid)
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
+                                                      origin=(0, 0)))
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
+                                                      origin=(0, 0)))
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
+                                                      origin=(0, 0)))
             trapezoid = shapely.affinity.scale(trapezoid, xfact=-1.0)
-            trapezoids.add(trapezoid)
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 90,
-                                                   origin=(0, 0)))
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 180,
-                                                   origin=(0, 0)))
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 270,
-                                                   origin=(0, 0)))
+            trapezoids.append(trapezoid)
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
+                                                      origin=(0, 0)))
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
+                                                      origin=(0, 0)))
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
+                                                      origin=(0, 0)))
         if w2 >= 10:
             # two-sided trapezoid - 4 possible orientations
             trapezoid = polygon([(0, 0), (h + w2 + h, 0), (h + w2, h), (h, h)])
-            trapezoids.add(trapezoid)
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 90,
-                                                   origin=(0, 0)))
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 180,
-                                                   origin=(0, 0)))
-            trapezoids.add(shapely.affinity.rotate(trapezoid, 270,
-                                                   origin=(0, 0)))
+            trapezoids.append(trapezoid)
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
+                                                      origin=(0, 0)))
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
+                                                      origin=(0, 0)))
+            trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
+                                                      origin=(0, 0)))
 
     return trapezoids
 
 
-def oval_set(area):
-    """Construct a set of ovals (actually, capsule shapes) that are
+def oval_list(area):
+    """Construct a list of ovals (actually, capsule shapes) that are
     grid-constrained but have approximately the requested area.
     """
     # Ovals are a pain to calculate and not likely to fit nicely into
@@ -626,7 +625,7 @@ def oval_set(area):
     # For w = h, area = 5/4 pi * h^2 ~= 4 h^2
     # For h = 10, w ~= area/10 - 10
     # For w = 10, area ~= a circle
-    ovals = set()
+    ovals = []
     for h in range(int(10 * math.ceil(math.sqrt(area/4) / 10)),
                    int(10 * math.ceil(math.sqrt(area) / 10)),
                    10):
@@ -638,14 +637,14 @@ def oval_set(area):
             offset = 5
         line = LineString([(offset, offset), (offset, w + offset)])
         oval = line.buffer(h/2)
-        ovals.add(oval)
-        ovals.add(shapely.affinity.rotate(oval, 90))
+        ovals.append(oval)
+        ovals.append(shapely.affinity.rotate(oval, 90, origin=(0,0)))
 
     return ovals
 
 
-def hexagon_set(area):
-    """Construct a set of hexagons that are grid-constrained but have
+def hexagon_list(area):
+    """Construct a list of hexagons that are grid-constrained but have
     approximately the requested area.
 
     Note that these "hexagons" have 45-degree angles only, and may vary in their
@@ -661,7 +660,7 @@ def hexagon_set(area):
     # We start with a rectangle of size w*h then add triangles of size
     # h/2*h to either side, so the overall area is (w*h + 2 (1/2 * h * h/2))
     # = w * h + h^2/2. Just like the "one-sided" trapezoid above...
-    hexagons = set()
+    hexagons = []
     for h in range(int(10 * math.ceil(math.sqrt(area * 2/3) / 10)),
                    int(10 * math.ceil(math.sqrt(area * 3/2) / 10)), 10):
         w = round((area / h) - (h / 2), -1)
@@ -676,14 +675,14 @@ def hexagon_set(area):
         hexagon = polygon([(h/2 + offset, 0), (offset, h/2),
                            (h/2 + offset, h), (h/2 + w + offset, h),
                            (h + w + offset, h/2), (h/2 + w + offset, 0)])
-        hexagons.add(hexagon)
-        hexagons.add(shapely.affinity.rotate(hexagon, 90, origin=(0, 0)))
+        hexagons.append(hexagon)
+        hexagons.append(shapely.affinity.rotate(hexagon, 90, origin=(0, 0)))
 
     return hexagons
 
 
-def octagon_set(area):
-    """Construct a set of octagons that are grid-constrained but have
+def octagon_list(area):
+    """Construct a list of octagons that are grid-constrained but have
     approximately the requested area.
 
     An "octagon" can potentially vary anywhere from:
@@ -706,7 +705,7 @@ def octagon_set(area):
                        (size, size - corner_offset), (size, corner_offset),
                        (size - corner_offset, 0), (corner_offset, 0)])
 
-    return set([octagon])
+    return [octagon]
 
 
 # Geometric interaction

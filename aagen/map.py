@@ -395,9 +395,9 @@ class DungeonMap:
         return candidates
 
 
-    def find_options_for_region(self, coords_set, connection):
+    def find_options_for_region(self, shape_list, connection):
         """Find valid positional options (if any) for placing one of the
-        given coordinate sets adjacent to the given Connection.
+        given shapes adjacent to the given Connection.
         Returns a list of Candidate_Region objects"""
 
         if connection.grow_direction.is_cardinal():
@@ -410,7 +410,7 @@ class DungeonMap:
 
         log.info("Looking for positional options for region {0} "
                  "adjacent to {1} in {2}"
-                 .format([to_string(c) for c in coords_set],
+                 .format([to_string(c) for c in shape_list],
                          connection, direction))
 
         # Our approach is as follows:
@@ -430,11 +430,10 @@ class DungeonMap:
 
         candidate_regions = []
         i = 0
-        for coords in coords_set:
+        for polygon in shape_list:
             log.info("Looking for positional options for {0}"
-                     .format(to_string(coords)))
+                     .format(to_string(polygon)))
 
-            polygon = aagen.geometry.polygon(coords)
             (new_x0, new_y0, new_x1, new_y1) = polygon.bounds
 
             ((x0, y0),
