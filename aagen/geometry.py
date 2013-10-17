@@ -139,9 +139,9 @@ def sweep(line, dir, distance, base_dir=None, fixup=False):
     return (poly2, line2)
 
 
-def sweep_corner(line, base_dir, width, new_dir):
+def sweep_corner(line, old_dir, width, new_dir):
     """Constructs a polygon representing the work needing to be done to
-    connect the given line, as swept in the given "base" direction, to a
+    connect the given line, last swept in the given "old" direction, to a
     grid-constrained, cardinally-oriented line perpendicular to the given
     "new" direction. (If the new direction is a diagonal, then either of its
     cardinal components will be chosen as the target orientation).
@@ -152,35 +152,35 @@ def sweep_corner(line, base_dir, width, new_dir):
 
     Returns a list of 1-2 (polygon, end_line) pairs.
     """
-    assert (isinstance(base_dir, Direction) and
+    assert (isinstance(old_dir, Direction) and
             isinstance(new_dir, Direction))
 
     log.info("Sweeping corner for {0} from {1} to {2}"
-             .format(to_string(line), base_dir, new_dir))
+             .format(to_string(line), old_dir, new_dir))
 
     (x0, y0, x1, y1) = line.bounds
 
     new_lines = []
-    if base_dir.name == new_dir.name:
-        if base_dir.is_cardinal():
+    if old_dir.name == new_dir.name:
+        if old_dir.is_cardinal():
             # Sweeping from cardinal direction to same cardinal direction
             # Just fix up to the grid.
-            if base_dir.name == "north":
+            if old_dir.name == "north":
                 line1 = LineString([(x0, math.ceil(y1/10) * 10),
                                     (x1, math.ceil(y1/10) * 10)])
-            elif base_dir.name == "west":
+            elif old_dir.name == "west":
                 line1 = LineString([(math.floor(x0/10) * 10, y0),
                                     (math.floor(x0/10) * 10, y1)])
-            elif base_dir.name == "south":
+            elif old_dir.name == "south":
                 line1 = LineString([(x0, math.floor(y0/10) * 10),
                                     (x1, math.floor(y0/10) * 10)])
-            elif base_dir.name == "east":
+            elif old_dir.name == "east":
                 line1 = LineString([(math.ceil(x1/10) * 10, y0),
                                     (math.ceil(x1/10) * 10, y1)])
 
             poly = loft([line, line1])
             log.info("Swept {0} from {1} to {2} resulting in {3}"
-                     .format(to_string(line), base_dir, new_dir,
+                     .format(to_string(line), old_dir, new_dir,
                              to_string(poly)))
             return [(poly, line1)]
 
@@ -196,7 +196,7 @@ def sweep_corner(line, base_dir, width, new_dir):
                     if (y1 - y0) >= (x1 - x0):
                         log.debug("Reorienting new_dir to {0}"
                                   .format(possible_dir))
-                        candidates += sweep_corner(line, base_dir,
+                        candidates += sweep_corner(line, old_dir,
                                                    width, possible_dir)
                     else:
                         log.debug("Not sweeping to the {0}, height is too small"
@@ -205,58 +205,111 @@ def sweep_corner(line, base_dir, width, new_dir):
                     if (x1 - x0) >= (y1 - y0):
                         log.debug("Reorienting new_dir to {0}"
                                   .format(possible_dir))
-                        candidates += sweep_corner(line, base_dir,
+                        candidates += sweep_corner(line, old_dir,
                                                    width, possible_dir)
                     else:
                         log.debug("Not sweeping to the {0}, width is too small"
                                   .format(possible_dir))
             return candidates
-            #return (sweep_corner(line, base_dir, width,
-            #                     new_dir.rotate(-45)) +
-            #        sweep_corner(line, base_dir, width,
-            #                     new_dir.rotate(45)))
-
-    elif base_dir.is_cardinal() and new_dir.angle_from(base_dir) <= 45:
+    elif old_dir.is_cardinal() and new_dir.angle_from(old_dir) <= 45:
         # Sweeping a diagonal from a component cardinal - stay cardinal
-        log.debug("Reorienting new_dir to {0}".format(base_dir))
-        return sweep_corner(line, base_dir, width, base_dir)
-    elif new_dir.is_cardinal() and base_dir.angle_from(new_dir) <= 45:
+        log.debug("Reorienting new_dir to {0}".format(old_dir))
+        return sweep_corner(line, old_dir, width, old_dir)
+    elif new_dir.is_cardinal() and old_dir.angle_from(new_dir) <= 45:
         # Sweeping a component cardinal from a diagonal - become cardinal
-        log.debug("Reorienting base_dir to {0}".format(new_dir))
-        return sweep_corner(line, new_dir, width, new_dir)
+        # Since the old direction was a diagonal, we need to check whether the
+        # line itself was diagonal, or whether it had already been cardinally
+        # oriented.
+        (line_w, line_h) = (x1 - x0, y1 - y0)
+        print("w: {0}, h: {1}, new_dir: {2}".format(line_w, line_h, new_dir.vector))
+        if ((new_dir.vector[0] == 0 and line_w > 0) or
+            (new_dir.vector[1] == 0 and line_h > 0)):
+            #  old = NE,
+            #  new = E
+            #  |            |
+            #  |     ==>    |
+            #  |            |
+            #
+            #  old = NE,
+            #  new = E
+            #  \         \--|
+            #   \    ==>  \ |
+            #    \         \|
+            #
+            # We're already semi-correctly oriented, so...
+            log.debug("Reorienting old_dir to {0}".format(new_dir))
+            return sweep_corner(line, new_dir, width, new_dir)
+        else:
+            #
+            #  old = NE,
+            #  new = E     /|
+            #        ==>  / |
+            #  ---        ---
+            #
+            print("Need to pivot 90 degrees...")
+            # Snap to grid if not already there...
+            [(poly1, line1)] = sweep_corner(line, old_dir, width, old_dir)
+            (new_x0, new_y0, new_x1, new_y1) = line1.bounds
+            # The component by which the directions differ...
+            different_component = old_dir.name.replace(new_dir.name, "")
+            if new_dir.name == "east":
+                new_x0 = new_x1
+            elif new_dir.name == "west":
+                new_x1 = new_x0
+            elif different_component == "east":
+                new_x0 = new_x1
+                new_x1 = new_x0 + width
+            elif different_component == "west":
+                new_x1 = new_x0
+                new_x0 = new_x1 - width
+
+            if new_dir.name == "north":
+                new_y0 = new_y1
+            elif new_dir.name == "south":
+                new_y1 = new_y0
+            elif different_component == "north":
+                new_y0 = new_y1
+                new_y1 = new_y0 + width
+            elif different_component == "south":
+                new_y1 = new_y0
+                new_y0 = new_y1 - width
+
+            new_line = LineString([(new_x0, new_y0), (new_x1, new_y1)])
+            poly = loft([line1, new_line])
+            return [(poly1.union(poly), new_line)]
     else:
         # The two directions are at least 90 degrees apart.
         # We'll need to sweep more than once...
-        if base_dir.is_cardinal():
+        if old_dir.is_cardinal():
             # Snap to grid
-            [(poly1, line1)] = sweep_corner(line, base_dir, width, base_dir)
+            [(poly1, line1)] = sweep_corner(line, old_dir, width, old_dir)
             # Extrude to form the corner
-            (poly2, throwaway) = sweep(line1, base_dir, width)
+            (poly2, throwaway) = sweep(line1, old_dir, width)
             (x0, y0, x1, y1) = poly2.bounds
             if (re.search("north", new_dir.name) and
-                base_dir.name != "south"):
+                old_dir.name != "south"):
                 line2 = LineString(((x0, y1), (x1, y1)))
             elif (re.search("west", new_dir.name) and
-                  base_dir.name != "east"):
+                  old_dir.name != "east"):
                 line2 = LineString(((x0, y0), (x0, y1)))
             elif (re.search("south", new_dir.name) and
-                  base_dir.name != "north"):
+                  old_dir.name != "north"):
                 line2 = LineString(((x0, y0), (x1, y0)))
             elif (re.search("east", new_dir.name) and
-                  base_dir.name != "west"):
+                  old_dir.name != "west"):
                 line2 = LineString(((x1, y0), (x1, y1)))
             else:
                 raise RuntimeError("Don't know how to sweep {0} from {1}"
-                                   .format(new_dir, base_dir))
+                                   .format(new_dir, old_dir))
         else:
-            (left, right) = (base_dir.rotate(45), base_dir.rotate(-45))
+            (left, right) = (old_dir.rotate(45), old_dir.rotate(-45))
             log.info("Deciding whether to sweep from {0} to {1} or {2}"
-                     .format(base_dir, left, right))
+                     .format(old_dir, left, right))
             if left.angle_from(new_dir) < right.angle_from(new_dir):
                 mid_dir = left
             else:
                 mid_dir = right
-            [(poly1, line1)] = sweep_corner(line, base_dir, width, mid_dir)
+            [(poly1, line1)] = sweep_corner(line, old_dir, width, mid_dir)
             [(poly2, line2)] = sweep_corner(line1, mid_dir, width, new_dir)
 
         log.info("line1 {0}, poly1 {1}, line2 {2}, poly2 {3}"
