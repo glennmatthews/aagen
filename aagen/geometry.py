@@ -118,7 +118,7 @@ def rotate(geometry, angle):
 
 # Geometric construction
 
-def sweep(line, dir, distance, base_dir=None, fixup=False):
+def sweep(line, dir, distance, base_dir=None, width=None, fixup=False):
     """Sweep the given line in the given direction for the given distance.
     Returns the tuple (polygon, new_line) where polygon is the polygon defined
     by the swept line, and new_line is the final line position.
@@ -137,8 +137,7 @@ def sweep(line, dir, distance, base_dir=None, fixup=False):
 
     poly1 = None
     if fixup:
-        line_poly_list = sweep_corner(line1, base_dir, 10, # TODO width
-                                      dir)
+        line_poly_list = sweep_corner(line1, base_dir, width, dir)
         (poly1, line1) = line_poly_list[0] # TODO
 
     line2 = shapely.affinity.translate(line1,

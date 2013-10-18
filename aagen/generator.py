@@ -80,7 +80,7 @@ class DungeonGenerator:
 
 
     def continue_passage(self, connection):
-        print("Rolling for passage continuation")
+        print("Rolling for passage continuation from {0}".format(connection))
 
         roll = d20()
 
@@ -95,8 +95,11 @@ class DungeonGenerator:
             self.print_roll(roll, "The passage branches; each branch "
                             "continues another 30 feet")
             new_conns = self.generate_side_passage(connection)
-            for conn in new_conns:
-                self.extend_passage(conn, 30)
+            # For now the passage growth is done in generate_side_passage()
+            # but really all generate_side_passage() should do is generate
+            # the intersection and the conns leaving it... TODO
+            #for conn in new_conns:
+            #    self.extend_passage(conn, 30)
             return
         elif roll <= 13:
             self.print_roll(roll, "Passage turns then continues 30 feet")
@@ -133,7 +136,7 @@ class DungeonGenerator:
 
 
     def generate_space_beyond_door(self, connection):
-        print("The door opens...")
+        print("The door ({0}) opens...".format(connection))
 
         roll = d20()
 
@@ -230,17 +233,15 @@ class DungeonGenerator:
         conns = []
         polygon = None
         for new_dir in dirs:
-            if new_dir.name == base_dir.name:
-                (poly, new_line) = aagen.geometry.sweep(connection.line,
-                                                        new_dir, new_width,
-                                                        base_dir, fixup=True)
-                # TODO try_region_as_candidate
+            if new_dir == base_dir:
+                # Continue 30' past the width of the side passage
+                distance = 30 + new_width
             else:
-                line_poly_list = aagen.geometry.sweep_corner(connection.line,
-                                                             base_dir,
-                                                             new_width, new_dir)
-                # TODO choose?
-                (poly, new_line) = line_poly_list[0]
+                # Side passage continues 30'
+                distance = 30
+            (poly, new_line) = aagen.geometry.sweep(connection.line, new_dir,
+                                                    distance, base_dir,
+                                                    new_width, fixup=True)
             if polygon is None:
                 polygon = poly
             else:
@@ -248,7 +249,7 @@ class DungeonGenerator:
             conns.append(Connection(Connection.OPEN, new_line,
                                     grow_dir=new_dir))
 
-        region = Region(Region.PASSAGE, poly)
+        region = Region(Region.PASSAGE, polygon)
         region.add_connection(connection)
         for conn in conns:
             region.add_connection(conn)
@@ -759,31 +760,14 @@ class DungeonGenerator:
         # If distance reduced to 0 and still no match found:
         # Reset to maximum distance, allow truncation, repeat all of the above
 
-        #line = connection.line
         (xmin, ymin, xmax, ymax) = connection.line.bounds
         for truncation in [False, True]:
             length = distance
             while length > 0:
                 for direction in possible_directions:
-                    if direction[1] < -0.01: # north
-                        line = [(round(xmin, -1), ymax),
-                                (round(xmax, -1), ymax)]
-                        delta = ymax - ymin + math.fmod(ymax, 10)
-                    elif direction[1] > 0.01: #south
-                        line = [(round(xmin, -1), ymin),
-                                (round(xmax, -1), ymin)]
-                        delta = ymax - ymin + (10 - math.fmod(ymin, 10))
-                    elif direction[0] < -0.01: # west
-                        line = [(xmax, round(ymin, -1)),
-                                (xmax, round(ymax, -1))]
-                        delta = xmax - xmin + math.fmod(xmax, 10)
-                    elif direction[0] > 0.01: # east
-                        line = [(xmin, round(ymin, -1)),
-                                (xmin, round(ymax, -1))]
-                        delta = xmax - xmin + (10 - math.fmod(xmin, 10))
                     (polygon, endwall) = aagen.geometry.sweep(connection.line,
                                                               direction,
-                                                              length + delta,
+                                                              length,
                                                               connection.base_direction,
                                                               fixup=True)
                     candidate = self.dungeon_map.try_region_as_candidate(
