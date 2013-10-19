@@ -115,7 +115,7 @@ class DungeonDisplay:
                 -(y / self.display_scale) + y1)
 
 
-    def draw_background(self):
+    def draw_background(self, verbosity=0):
         """Draw the parts of the dungeon that underlay the grid"""
         log.debug("Drawing background")
 
@@ -125,17 +125,23 @@ class DungeonDisplay:
         log.debug("Drawing Region contents")
         for region in self.dungeon_map.regions:
             coords = self.map_to_screen(region.coords)
-            if region.kind == Region.ROOM:
-                color = (255, 255, 240)
-            elif region.kind == Region.CHAMBER:
-                color = (255, 240, 255)
-            elif region.kind == Region.PASSAGE:
-                color = (240, 255, 255)
+            if verbosity > 0:
+                # Color-code regions for convenience
+                if region.kind == Region.ROOM:
+                    color = (255, 255, 240)
+                elif region.kind == Region.CHAMBER:
+                    color = (255, 240, 255)
+                elif region.kind == Region.PASSAGE:
+                    color = (240, 255, 255)
+                else:
+                    raise LookupError("Unknown Region kind '{0}'"
+                                      .format(region.kind))
             else:
-                raise LookupError("Unknown Region kind '{0}'"
-                                  .format(region.kind))
+                color = (255, 255, 255)
             pygame.draw.polygon(self.surface, color, coords)
 
+        if verbosity == 0:
+            return
         log.debug("Drawing Connection contents")
         for conn in self.dungeon_map.connections:
             coords = self.map_to_screen(conn.get_poly_coords())
@@ -161,7 +167,7 @@ class DungeonDisplay:
             pygame.draw.polygon(self.surface, color, coords)
 
 
-    def draw_grid(self):
+    def draw_grid(self, verbosity=0):
         """Draw the 10' grid over the dungeon background"""
         log.debug("Drawing grid")
         (x0, y0, x1, y1) = self.bounds
@@ -182,14 +188,15 @@ class DungeonDisplay:
             j += 10
 
 
-    def draw_foreground(self):
+    def draw_foreground(self, verbosity=0):
         """Draw everything that displays over the dungeon grid"""
         log.debug("Drawing foreground")
 
-        # Mark the origin point
-        pygame.draw.polygon(self.surface, (255, 0, 0),
-                            self.map_to_screen([(-3, -3), (-3, 3),
-                                                (3, 3), (3, -3)]))
+        if verbosity > 0:
+            # Mark the origin point
+            pygame.draw.polygon(self.surface, (255, 0, 0),
+                                self.map_to_screen([(-3, -3), (-3, 3),
+                                                    (3, 3), (3, -3)]))
 
 
         for region in self.dungeon_map.regions:
@@ -202,12 +209,16 @@ class DungeonDisplay:
         for conn in self.dungeon_map.connections:
             centroid = self.map_to_screen((conn.line.centroid.x,
                                            conn.line.centroid.y))
-            if True:
+            if verbosity > 0:
                 # Draw the directional vectors of this connection for debugging
-                endpoint1 = self.map_to_screen((conn.line.centroid.x + 7*conn.base_direction[0],
-                                                conn.line.centroid.y + 7*conn.base_direction[1]))
-                endpoint2 = self.map_to_screen((conn.line.centroid.x + 5*conn.grow_direction[0],
-                                                conn.line.centroid.y + 5*conn.grow_direction[1]))
+                endpoint1 = self.map_to_screen((conn.line.centroid.x +
+                                                7*conn.base_direction[0],
+                                                conn.line.centroid.y +
+                                                7*conn.base_direction[1]))
+                endpoint2 = self.map_to_screen((conn.line.centroid.x +
+                                                5*conn.grow_direction[0],
+                                                conn.line.centroid.y +
+                                                5*conn.grow_direction[1]))
                 pygame.draw.line(self.surface, (255, 0, 0),
                                  centroid, endpoint1, 3)
                 pygame.draw.line(self.surface, (0, 255, 0),
@@ -216,7 +227,11 @@ class DungeonDisplay:
             color = (0, 0, 0)
             coords = self.map_to_screen(conn.get_poly_coords())
             if conn.kind == Connection.DOOR:
-                pygame.draw.polygon(self.surface, (240, 255, 240),
+                if verbosity > 0:
+                    door_color = (240, 255, 240)
+                else:
+                    door_color = (255, 255, 255)
+                pygame.draw.polygon(self.surface, door_color,
                                     self.map_to_screen(conn.draw_lines.coords))
                 pygame.draw.lines(self.surface, color, False,
                                   self.map_to_screen(conn.get_line_coords()), 2)
@@ -292,16 +307,16 @@ class DungeonDisplay:
                 raise LookupError("Don't know how to draw foreground for {0}"
                                   .format(dec.kind))
 
-    def draw(self):
+    def draw(self, verbosity=0):
         """Render the entire map to the surface"""
 
         # Calculate overall scale and position of the map
         self.update_bounds()
         # Draw the dungeon background (everything behind the grid)
-        self.draw_background()
+        self.draw_background(verbosity)
         # Draw the grid
-        self.draw_grid()
+        self.draw_grid(verbosity)
         # Draw the dungeon foreground (everything in front of the grid)
-        self.draw_foreground()
+        self.draw_foreground(verbosity)
 
         pygame.display.flip()

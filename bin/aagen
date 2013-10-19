@@ -64,7 +64,7 @@ def main():
     dungeon_display = DungeonDisplay(dungeon_map)
     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
 
-    dungeon_display.draw()
+    dungeon_display.draw(verbosity=args.verbose)
 
     running = True
     done = False
@@ -86,7 +86,7 @@ def main():
                             print (e)
                             traceback.print_exc()
                             running = False
-                        dungeon_display.draw()
+                        dungeon_display.draw(verbosity=args.verbose)
                 elif event.key == pygame.K_w:
                     with open("current.aamap", 'w') as f:
                         json.dump(dungeon_map, f,
@@ -96,11 +96,11 @@ def main():
                         dungeon_map = json.load(f, object_hook=map_from_dict)
                     dungeon_display = DungeonDisplay(dungeon_map)
                     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
-                    dungeon_display.draw()
+                    dungeon_display.draw(verbosity=args.verbose)
                     running = True
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
-                dungeon_display.draw()
+                dungeon_display.draw(verbosity=args.verbose)
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
                     (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
