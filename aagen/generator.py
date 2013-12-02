@@ -722,22 +722,43 @@ class DungeonGenerator:
         print("Generating exit location...")
         roll = d20()
 
-        if roll <= 7:
-            direction = base_direction
-            self.print_roll(roll, "Opposite the entrance ({0})"
-                            .format(direction.name))
-        elif roll <= 12:
-            direction = base_direction.rotate(90)
-            self.print_roll(roll, "To the left of the entrance ({0})"
-                            .format(direction.name))
-        elif roll <= 17:
-            direction = base_direction.rotate(-90)
-            self.print_roll(roll, "To the right of the entrance ({0})"
-                            .format(direction.name))
+        if base_direction.is_cardinal():
+            if roll <= 7:
+                direction = base_direction
+                self.print_roll(roll, "Opposite the entrance ({0})"
+                                .format(direction.name))
+            elif roll <= 12:
+                direction = base_direction.rotate(90)
+                self.print_roll(roll, "To the left of the entrance ({0})"
+                                .format(direction.name))
+            elif roll <= 17:
+                direction = base_direction.rotate(-90)
+                self.print_roll(roll, "To the right of the entrance ({0})"
+                                .format(direction.name))
+            else:
+                direction = base_direction.rotate(180)
+                self.print_roll(roll, "On the same side as the entrance ({0})"
+                                .format(direction.name))
         else:
-            direction = base_direction.rotate(180)
-            self.print_roll(roll, "On the same side as the entrance ({0})"
-                            .format(direction.name))
+            # Exits are always cardinally oriented...
+            # Numbers below are picked arbitrarily to try and preserve the
+            # "feel" of the above cardinal table, preferring forward over back.
+            if roll <= 6:
+                direction = base_direction.rotate(45)
+                self.print_roll(roll, "Forward and left ({0})"
+                                .format(direction.name))
+            elif roll <= 12:
+                direction = base_direction.rotate(-45)
+                self.print_roll(roll, "Forward and right ({0})"
+                                .format(direction.name))
+            elif roll <= 16:
+                direction = base_direction.rotate(135)
+                self.print_roll(roll, "Back and left ({0})"
+                                .format(direction.name))
+            else:
+                direction = base_direction.rotate(-135)
+                self.print_roll(roll, "Back and right ({0})"
+                                .format(direction.name))
 
         log.info("Exit direction: {0}".format(direction))
 
