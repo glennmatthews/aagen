@@ -707,6 +707,7 @@ class DungeonGenerator:
         # For now just pick one at random:
         candidate = self.select_best_connection(candidates)
         room.polygon = aagen.geometry.union(room.polygon, candidate.polygon)
+        self.dungeon_map.refresh_conglomerate()
         conn = Connection(exit_kind, candidate.line, room, exit_dir)
         room.add_connection(conn)
         self.dungeon_map.add_connection(conn)

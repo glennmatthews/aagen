@@ -147,8 +147,7 @@ class DungeonMap:
         if not region in self.regions:
             log.info("Adding Region ({0}) to {1}".format(region, self))
             self.regions.add(region)
-            polygons = set([r.polygon for r in self.regions])
-            self.conglomerate_polygon = aagen.geometry.union(polygons)
+            self.refresh_conglomerate()
             for decoration in region.decorations:
                 self.add_decoration(decoration)
             for connection in region.connections:
@@ -162,6 +161,13 @@ class DungeonMap:
                     # TODO fix up any funky edges
                     connection.add_region(region)
                     self.add_connection(connection)
+
+    def refresh_conglomerate(self):
+        """Regenerate the conglomerate polygon.
+        """
+        polygons = set([r.polygon for r in self.regions])
+        self.conglomerate_polygon = aagen.geometry.union(polygons)
+
 
     def add_decoration(self, dec):
         assert isinstance(dec, Decoration)
@@ -456,8 +462,8 @@ class DungeonMap:
                           self.conglomerate_polygon.union(trim_polygon).length,
                           wall_delta))
         log.debug("polygon: {0}\nconglomerate: {1}"
-                  .format(list(trim_polygon.exterior.coords),
-                          list(self.conglomerate_polygon.exterior.coords)))
+                  .format(to_string(trim_polygon),
+                          to_string(self.conglomerate_polygon)))
         shared_walls = (trim_polygon.length + wall_delta) / 2
         if shared_walls < 5:
             log.info("Candidate only shares {0}' of walls - not valid!"
