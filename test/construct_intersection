@@ -106,7 +106,8 @@ def main():
             if event.type == pygame.QUIT:
                 done = True
             elif event.type == pygame.KEYDOWN:
-                done = True
+                if event.key == pygame.K_ESCAPE:
+                    done = True
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
                 dungeon_display.draw(verbosity=args.verbose)
