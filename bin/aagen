@@ -65,6 +65,7 @@ def main():
     dungeon_display = DungeonDisplay(dungeon_map)
     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
 
+    dungeon_map.flush()
     dungeon_display.draw(verbosity=args.verbose)
 
     running = True
@@ -97,6 +98,7 @@ def main():
                         dungeon_map = json.load(f, object_hook=map_from_dict)
                     dungeon_display = DungeonDisplay(dungeon_map)
                     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
+                    dungeon_map.flush()
                     dungeon_display.draw(verbosity=args.verbose)
                     running = True
             elif event.type == pygame.VIDEORESIZE:

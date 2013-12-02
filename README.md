@@ -1,7 +1,7 @@
 aagen
 =====
 
-![Screenshot](./screenshot2.png)
+![Screenshot](./screenshot3.png)
 
 Installation
 ------------
@@ -30,6 +30,7 @@ aagen with the `-f` option:
 
 
 As aagen runs, on the console you will see various informational and debug messages.
+To see more messages you can add the `-v` option (or `-vv`, `-vvv` for even more).
 One of the first messages output to the console will report the "seed" that was
 used to generate this dungeon:
 
