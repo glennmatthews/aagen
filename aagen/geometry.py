@@ -35,9 +35,7 @@ def to_string(geometry):
         coords = geometry.coords
     elif isinstance(geometry, Polygon):
         coords = geometry.exterior.coords
-    elif (isinstance(geometry, MultiLineString) or
-          isinstance(geometry, MultiPolygon) or
-          isinstance(geometry, GeometryCollection)):
+    elif hasattr(geometry, "geoms"):
         return "<{0} ({1})>".format(type(geometry).__name__,
                                     ", ".join([to_string(g) for
                                                g in geometry.geoms]))
@@ -74,13 +72,49 @@ def numstr(value):
     return ('%0.2f' % value).rstrip('0').rstrip('.')
 
 
+def length(line):
+    """Returns the Manhattan length of the given line segment.
+    """
+    (point1, point2) = list(line.boundary)
+    return (math.fabs(point1.x - point2.x) + math.fabs(point1.y - point2.y))
+
+
+def grid_aligned(line, direction):
+    """Returns whether the given line's endpoints are properly grid-constrained.
+    """
+    if (Direction.normal_to(line) != direction and
+        Direction.normal_to(line) != direction.rotate(180)):
+        return False
+    (p1, p2) = list(line.boundary)
+    # Even in the case of 5-foot-wide passages and diagonal passages, at least
+    # one endpoint must be constrained to the 10' grid to be valid
+    if ((math.fmod(p1.x, 10) != 0 or math.fmod(p1.y, 10) != 0) and
+        (math.fmod(p2.x, 10) != 0 or math.fmod(p2.y, 10) != 0)):
+        return False
+    if p1.x == p2.x or p1.y == p2.y:
+        # Vertical or horizontal, promising...
+        return (math.fmod(p1.x, 10) == 0 and math.fmod(p2.x, 10) == 0 and
+                math.fmod(p1.y, 10) == 0 and math.fmod(p2.y, 10) == 0)
+    elif math.fabs(p1.x - p2.x) == math.fabs(p1.y - p2.y):
+        # 45-degree angle, promising...
+        return (math.fmod(p1.x, 5) == 0 and math.fmod(p2.x, 5) == 0 and
+                math.fmod(p1.y, 5) == 0 and math.fmod(p2.y, 5) == 0)
+    return False
+
 
 # Geometric manipulation
 
-def translate(shape, dx, dy):
-    """Translate the given shape by the given (dx, dy) and return the
+def translate(shape, dx_or_dir, dy_or_dist):
+    """Translate the given shape by the given (dx, dy) or by
+    the given (direction, distance) and return the
     resulting new shape.
     """
+    if isinstance(dx_or_dir, Direction):
+        dx = dx_or_dir.vector[0] * dy_or_dist
+        dy = dx_or_dir.vector[1] * dy_or_dist
+    else:
+        dx = dx_or_dir
+        dy = dy_or_dist
     return shapely.affinity.translate(shape, dx, dy)
 
 
@@ -94,7 +128,7 @@ def rotate(geometry, angle):
         # (x, y) - box and unbox it as a list of one point
         return rotate([geometry], angle)[0]
     if isinstance(angle, Direction):
-        return rotate(geometry, angle.vector)
+        return rotate(geometry, angle.degrees)
 
     if type(angle) is tuple:
         radians = math.atan2(angle[1], angle[0])
@@ -118,221 +152,369 @@ def rotate(geometry, angle):
 
 # Geometric construction
 
-def sweep(line, dir, distance, base_dir=None, width=None, fixup=False):
+def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
+    """Construct the polygon describing an intersection between two or more
+    passages.
+
+    If exit_width is unspecified it is assumed to be the same as the base line.
+    If exit_width is specified it will be used for all exits EXCEPT any exit
+    in the same direction as the base_dir (i.e., passage continuation).
+
+    Returns (polygon, {dir1: line1, dir2: line2, ...})
+    """
+
+    # Input validation
+    assert isinstance(base_dir, Direction)
+    for exit_dir in exit_dir_list:
+        assert isinstance(exit_dir, Direction)
+    base_line = line(base_line) # just to be safe
+    # Make sure the direction we were given matches the base line's orientation
+    test_dir = Direction.normal_to(base_line)
+    assert (test_dir.angle_from(base_dir) == 0 or
+            test_dir.angle_from(base_dir) == 180)
+
+    base_width = length(base_line)
+    if exit_width is None:
+        exit_width = base_width
+    log.debug("base width: {0}, exit width: {1}".format(base_width, exit_width))
+
+    # Categorize the exit directions by their relationship with the base dir
+    exits_45 = []
+    exits_90 = []
+    exits_135 = []
+    exit_fwd = None
+    for exit_dir in exit_dir_list:
+        if exit_dir.rotate(45) == base_dir or exit_dir.rotate(-45) == base_dir:
+            exits_45.append(exit_dir)
+        elif (exit_dir.rotate(90) == base_dir or
+              exit_dir.rotate(-90) == base_dir):
+            exits_90.append(exit_dir)
+        elif (exit_dir.rotate(135) == base_dir or
+              exit_dir.rotate(-135) == base_dir):
+            exits_135.append(exit_dir)
+        elif exit_dir == base_dir:
+            exit_fwd = exit_dir
+        else:
+            raise RuntimeError("Unexpected angle between {0} and {1}?!"
+                               .format(base_dir.name, exit_dir.name))
+
+    new_polygon = base_line
+    new_exits = {}
+
+    # Do each in turn, if present
+    for exit_135 in exits_135:
+        # Calculate some related angles:
+        dir_45_same = base_dir.rotate(45)
+        if dir_45_same.angle_from(exit_135) == 90:
+            dir_90_same = base_dir.rotate(90)
+            dir_45_opp = base_dir.rotate(-45)
+            dir_90_opp = base_dir.rotate(-90)
+            dir_135_opp = base_dir.rotate(-135)
+        else:
+            dir_45_same = base_dir.rotate(-45)
+            dir_90_same = base_dir.rotate(-90)
+            dir_45_opp = base_dir.rotate(45)
+            dir_90_opp = base_dir.rotate(90)
+            dir_135_opp = base_dir.rotate(135)
+
+        # Choose point that should be shared between baseline and this exit
+        (shared_point, other_point) = endpoints_by_direction(base_line,
+                                                             exit_135)
+
+        # Construct the exit line
+        new_exit_point = translate(shared_point, dir_45_same, exit_width)
+        new_exits[exit_135] = line([shared_point, new_exit_point])
+
+        base_ext_line = point_sweep(other_point, base_dir, 100)
+
+        # If this passage has an opposing exit, construct it too
+        if dir_45_opp in exits_45:
+            exits_45.remove(dir_45_opp)
+
+            # Locate the new exit points
+            shared_ext_line = point_sweep(shared_point, dir_45_opp, 100)
+            exit_ext_line = point_sweep(new_exit_point, dir_45_opp, 100)
+            newer_exit_point1 = intersect(base_ext_line, exit_ext_line)
+            inter_point = intersect(base_ext_line, shared_ext_line)
+            newer_exit_point2 = translate(newer_exit_point1, dir_135_opp,
+                                          exit_width)
+            new_exits[dir_45_opp] = line([newer_exit_point1, newer_exit_point2])
+
+            if base_dir in exit_dir_list:
+                # Extend forward as well!
+                newest_exit_point = translate(newer_exit_point1, dir_90_same,
+                                              base_width)
+                new_exits[base_dir] = line([newer_exit_point1,
+                                            newest_exit_point])
+                new_inter_point = intersect(exit_ext_line,
+                                            line([shared_point,
+                                                  newest_exit_point]))
+                new_poly = polygon([other_point, shared_point, new_exit_point,
+                                    new_inter_point, newest_exit_point,
+                                    newer_exit_point1, newer_exit_point2,
+                                    inter_point, other_point])
+            else:
+                # No passage continuation
+                new_poly = polygon([other_point, shared_point, new_exit_point,
+                                    newer_exit_point1, newer_exit_point2,
+                                    inter_point, other_point])
+        elif base_dir in exit_dir_list or (dir_45_same in exit_dir_list and not
+                                           dir_135_opp in exit_dir_list):
+            newer_exit_point1 = translate(new_exit_point, dir_45_opp,
+                                          exit_width)
+            newer_exit_point2 = translate(newer_exit_point1, dir_90_opp,
+                                          base_width)
+            if dir_45_same in exit_dir_list:
+                exits_45.remove(dir_45_same)
+                new_exits[dir_45_same] = line([new_exit_point,
+                                               newer_exit_point1])
+            # We may have already constructed the forward exit; if so,
+            # do not overwrite it here
+            if base_dir in exit_dir_list and not base_dir in new_exits.keys():
+                new_exits[base_dir] = line([newer_exit_point1,
+                                            newer_exit_point2])
+            new_poly = polygon([other_point, shared_point, new_exit_point,
+                                newer_exit_point1, newer_exit_point2,
+                                other_point])
+        else:
+            # No other exits on this side
+            # Construct the corner of the polygon
+            corner_ext_line = point_sweep(new_exit_point, dir_90_opp, 100)
+            corner_point = intersect(base_ext_line, corner_ext_line)
+            new_poly = polygon([other_point, shared_point, new_exit_point,
+                                corner_point, other_point])
+
+        log.debug("new_poly: {0}".format(to_string(new_poly)))
+        new_polygon = union(new_polygon, new_poly)
+
+    # End handling of 135-degree turns
+
+    for exit_90 in exits_90:
+        # Easy peasy!
+        (shared_point, other_point) = endpoints_by_direction(base_line, exit_90)
+        exit_point = translate(shared_point, base_dir, exit_width)
+        corner_point = translate(other_point, base_dir, exit_width)
+        new_exits[exit_90] = line([shared_point, exit_point])
+        if base_dir in exit_dir_list and not base_dir in new_exits.keys():
+            new_exits[base_dir] = line([exit_point, corner_point])
+        new_poly = polygon([other_point, shared_point, exit_point, corner_point,
+                            other_point])
+        log.debug("new_poly: {0}".format(to_string(new_poly)))
+        new_polygon = union(new_polygon, new_poly)
+
+    for exit_45 in exits_45:
+        # Any 45-degree angles we didn't already handle...
+        dir_45_opp = base_dir.rotate(45)
+        if dir_45_opp == exit_45:
+            dir_45_opp = base_dir.rotate(-45)
+            dir_90_opp = base_dir.rotate(-90)
+        else:
+            dir_90_opp = base_dir.rotate(90)
+        (shared_point, other_point) = endpoints_by_direction(base_line, exit_45)
+        if base_dir in exit_dir_list:
+            # Same polygon as above in exit_135:
+            new_exit_point1 = translate(shared_point, exit_45, exit_width)
+            new_exit_point2 = translate(new_exit_point1, dir_45_opp, exit_width)
+            new_exit_point3 = translate(new_exit_point2, dir_90_opp, base_width)
+            new_exits[exit_45] = line([new_exit_point1, new_exit_point2])
+            if not base_dir in new_exits.keys():
+                new_exits[base_dir] = line([new_exit_point2, new_exit_point3])
+            new_poly = polygon([other_point, shared_point, new_exit_point1,
+                                new_exit_point2, new_exit_point3])
+        else:
+            # Construct an initial point and some guiding lines
+            new_exit_point = translate(shared_point, dir_45_opp, exit_width)
+            exit_line = line([shared_point, new_exit_point])
+            base_midline_ext = point_sweep(base_line.interpolate(base_width/2),
+                                           base_dir, 100)
+            base_diag_ext = point_sweep(base_line.interpolate(base_width/2),
+                                        exit_45, 100)
+            other_ext = point_sweep(other_point, base_dir, 100)
+            if exit_line.touches(base_midline_ext):
+                # The simplest case - just a triangle
+                new_exits[exit_45] = exit_line
+                new_poly = polygon([other_point, shared_point, new_exit_point])
+            elif exit_line.crosses(base_midline_ext):
+                if dir_45_opp in exit_dir_list or dir_90_opp in exit_dir_list:
+                    # Sweep it until it no longer crosses the midline
+                    temp_line = line([intersect(exit_line, base_midline_ext),
+                                      new_exit_point])
+                    overlap_len = length(temp_line)
+                    log.debug("overlap of {0} over {1}: {2}"
+                              .format(to_string(exit_line),
+                                      to_string(base_midline_ext),
+                                      overlap_len))
+                elif exit_line.crosses(other_ext):
+                    # Just sweep it until it no longer crosses the other side
+                    temp_line = line([intersect(exit_line, other_ext),
+                                      new_exit_point])
+                    overlap_len = length(temp_line)
+                    log.debug("overlap of {0} over {1}: {2}"
+                              .format(to_string(exit_line),
+                                      to_string(other_ext),
+                                      overlap_len))
+                else:
+                    overlap_len = 0
+                exit_line = translate(exit_line, exit_45, overlap_len)
+                new_exits[exit_45] = exit_line
+                # Construct the polygon
+                (far_point, _) = endpoints_by_direction(exit_line, base_dir)
+                far_ext = point_sweep(far_point, exit_45.rotate(180), 100)
+                corner_point = intersect(other_ext, far_ext)
+                new_poly = loft(line([corner_point, other_point, shared_point]),
+                                exit_line)
+            else:
+                exit_line = translate(exit_line, base_dir,
+                                      (base_width - exit_width))
+                new_exits[exit_45] = exit_line
+                new_poly = loft(base_line, exit_line)
+
+        log.debug("new_poly: {0}".format(to_string(new_poly)))
+        new_polygon = union(new_polygon, new_poly)
+
+
+    log.info("polygon: {0}".format(to_string(new_polygon)))
+    log.info("exits: {0}".format([(e_dir.name, to_string(e_line)) for
+                                  (e_dir, e_line) in new_exits.items()]))
+
+    return (new_polygon, new_exits)
+
+
+def cardinal_to_diagonal(base_line, new_orientation):
+    """Convert a cardinal line segment of length X to a diagonal line of
+    length sqrt(2)/2 * x.
+    """
+    assert isinstance(new_orientation, Direction)
+    base_line = line(base_line)
+    base_dir = Direction.normal_to(base_line)
+    if base_dir.angle_from(new_orientation) > 90:
+        base_dir = base_dir.rotate(180)
+    assert base_dir.is_cardinal() and not new_orientation.is_cardinal()
+
+    log.debug("Changing base line {0} from {1} to {2}"
+              .format(to_string(base_line), base_dir, new_orientation))
+
+    (x0, y0, x1, y1) = base_line.bounds
+
+    # Find the endpoint the new line shares with the base line
+    if new_orientation.vector[0] > 0:
+        xa = x1
+    else:
+        xa = x0
+    if new_orientation.vector[1] > 0:
+        ya = y1
+    else:
+        ya = y0
+    log.debug("shared point: {0}, {1}".format(xa, ya))
+
+    # Construct the new endpoint
+    xb = (x1 - x0)/2 + (base_dir.vector[0] * (y1 - y0)/2)
+    yb = (y1 - y0)/2 + (base_dir.vector[1] * (x1 - x0)/2)
+    log.debug("new point: {0}, {1}".format(xb, yb))
+
+    new_line = line([(xa, ya), (xb, yb)])
+    log.debug("new line is {0}".format(to_string(new_line)))
+    return new_line
+
+
+def diagonal_to_cardinal(base_line, new_orientation):
+    """Convert a diagonal line of length sqrt(2)/2 * X to a cardinal line
+    of length X
+    """
+    assert isinstance(new_orientation, Direction)
+    base_line = line(base_line)
+    base_dir = Direction.normal_to(base_line)
+    if base_dir.angle_from(new_orientation) > 90:
+        base_dir = base_dir.rotate(180)
+    assert not base_dir.is_cardinal() and  new_orientation.is_cardinal()
+
+    log.debug("Changing base line {0} from {1} to {2}"
+              .format(to_string(base_line), base_dir, new_orientation))
+
+    (x0, y0, x1, y1) = base_line.bounds
+
+    # Construct the first endpoint
+    if base_dir.vector[0] > 0:
+        if new_orientation.vector[0] > 0:
+            xa = math.ceil(x1/10) * 10
+        else:
+            xa = math.ceil(x0/10) * 10
+    else:
+        if new_orientation.vector[0] < 0:
+            xa = math.floor(x0/10) * 10
+        else:
+            xa = math.floor(x1/10) * 10
+    if base_dir.vector[1] > 0:
+        if new_orientation.vector[1] > 0:
+            ya = math.ceil(y1/10) * 10
+        else:
+            ya = math.ceil(y0/10) * 10
+    else:
+        if new_orientation.vector[1] < 0:
+            ya = math.floor(y0/10) * 10
+        else:
+            ya = math.floor(y1/10) * 10
+    log.debug("first point: {0}, {1}".format(xa, ya))
+
+    new_width = 2 * (x1 - x0) # or y1 - y0
+
+    # Construct the second endpoint
+    xb = xa + new_orientation.vector[1] * (2 * (y1 - y0))
+    yb = ya + new_orientation.vector[0] * (2 * (x1 - x0))
+    log.debug("second point: {0}, {1}".format(xb, yb))
+    new_line = line([(xa, ya), (xb, yb)])
+    log.info("new line is {0}".format(to_string(new_line)))
+    return new_line
+
+
+def endpoints_by_direction(line, dir):
+    """Return the (closer, farther) endpoints of the given line relative
+    to the given direction.
+    """
+    (point1, point2) = list(line.boundary)
+
+    weight = ((point1.x - point2.x) * dir.vector[0] +
+              (point1.y - point2.y) * dir.vector[1])
+    if weight > 0:
+        return (point1, point2)
+    elif weight < 0:
+        return (point2, point1)
+    else:
+        raise RuntimeError("Unable to decide between {0} and {1} in {2}"
+                           .format(to_string(point1), to_string(point2),
+                                   dir.name))
+
+
+def point_sweep(point, dx_or_dir, dy_or_dist):
+    """Moves the given point and constructs a line segment between the two.
+    Returns the constructed line
+    """
+    point2 = translate(point, dx_or_dir, dy_or_dist)
+    new_line = line([point, point2])
+    return new_line
+
+
+def sweep(base_line, dir, distance, base_dir=None, width=None):
     """Sweep the given line in the given direction for the given distance.
     Returns the tuple (polygon, new_line) where polygon is the polygon defined
     by the swept line, and new_line is the final line position.
-
-    If fixup is set to true, will do any intermediate work needed to fix the
-    given line to the appropriate grid line before sweeping.
     """
     assert isinstance(dir, Direction)
-    (dx, dy) = dir.vector
 
     # line can be a LineString object or simply a list of coords
-    if isinstance(line, LineString):
-        line1 = line
-    else:
-        line1 = LineString(line)
+    line1 = line(base_line)
 
-    poly1 = None
-    if fixup:
-        line_poly_list = sweep_corner(line1, base_dir, width, dir)
-        (poly1, line1) = line_poly_list[0] # TODO
+    line2 = translate(line1, dir, distance)
 
-    line2 = shapely.affinity.translate(line1,
-                                       round(dx * distance, -1),
-                                       round(dy * distance, -1))
-
-    poly2 = loft([line1, line2])
-    if poly1 is not None:
-        poly2 = poly2.union(poly1)
+    poly2 = loft(line1, line2)
 
     log.debug("Swept polygon from {0} in {1} by {2}: {3}"
-              .format(to_string(line1), (dx, dy), distance,
+              .format(to_string(line1), dir.name, distance,
                       to_string(poly2)))
     return (poly2, line2)
 
 
-def sweep_corner(line, old_dir, width, new_dir):
-    """Constructs a polygon representing the work needing to be done to
-    connect the given line, last swept in the given "old" direction, to a
-    grid-constrained, cardinally-oriented line perpendicular to the given
-    "new" direction. (If the new direction is a diagonal, then either of its
-    cardinal components will be chosen as the target orientation).
-
-    Can be used to fix up non-grid-constrained lines (such as an entrance/exit
-    from an unusually-shaped room) as well as to construct corners and
-    intersections.
-
-    Returns a list of 1-2 (polygon, end_line) pairs.
-    """
-    assert (isinstance(old_dir, Direction) and
-            isinstance(new_dir, Direction))
-
-    log.info("Sweeping corner for {0} from {1} to {2}"
-             .format(to_string(line), old_dir, new_dir))
-
-    (x0, y0, x1, y1) = line.bounds
-
-    new_lines = []
-    if old_dir.name == new_dir.name:
-        if old_dir.is_cardinal():
-            # Sweeping from cardinal direction to same cardinal direction
-            # Just fix up to the grid.
-            if old_dir.name == "north":
-                line1 = LineString([(x0, math.ceil(y1/10) * 10),
-                                    (x1, math.ceil(y1/10) * 10)])
-            elif old_dir.name == "west":
-                line1 = LineString([(math.floor(x0/10) * 10, y0),
-                                    (math.floor(x0/10) * 10, y1)])
-            elif old_dir.name == "south":
-                line1 = LineString([(x0, math.floor(y0/10) * 10),
-                                    (x1, math.floor(y0/10) * 10)])
-            elif old_dir.name == "east":
-                line1 = LineString([(math.ceil(x1/10) * 10, y0),
-                                    (math.ceil(x1/10) * 10, y1)])
-
-            poly = loft([line, line1])
-            log.info("Swept {0} from {1} to {2} resulting in {3}"
-                     .format(to_string(line), old_dir, new_dir,
-                             to_string(poly)))
-            return [(poly, line1)]
-
-        else:
-            # Sweeping from diagonal direction to same diagonal direction.
-            # In this case we are actually sweeping to either of the cardinal
-            # components of this direction, so long as they have the correct
-            # size:
-            candidates = []
-            for possible_dir in [new_dir.rotate(-45), new_dir.rotate(45)]:
-                if (possible_dir.name == "west" or
-                    possible_dir.name == "east"):
-                    if (y1 - y0) >= (x1 - x0):
-                        log.debug("Reorienting new_dir to {0}"
-                                  .format(possible_dir))
-                        candidates += sweep_corner(line, old_dir,
-                                                   width, possible_dir)
-                    else:
-                        log.debug("Not sweeping to the {0}, height is too small"
-                                  .format(possible_dir))
-                else:
-                    if (x1 - x0) >= (y1 - y0):
-                        log.debug("Reorienting new_dir to {0}"
-                                  .format(possible_dir))
-                        candidates += sweep_corner(line, old_dir,
-                                                   width, possible_dir)
-                    else:
-                        log.debug("Not sweeping to the {0}, width is too small"
-                                  .format(possible_dir))
-            return candidates
-    elif old_dir.is_cardinal() and new_dir.angle_from(old_dir) <= 45:
-        # Sweeping a diagonal from a component cardinal - stay cardinal
-        log.debug("Reorienting new_dir to {0}".format(old_dir))
-        return sweep_corner(line, old_dir, width, old_dir)
-    elif new_dir.is_cardinal() and old_dir.angle_from(new_dir) <= 45:
-        # Sweeping a component cardinal from a diagonal - become cardinal
-        # Since the old direction was a diagonal, we need to check whether the
-        # line itself was diagonal, or whether it had already been cardinally
-        # oriented.
-        (line_w, line_h) = (x1 - x0, y1 - y0)
-        if ((new_dir.vector[0] == 0 and line_w > 0) or
-            (new_dir.vector[1] == 0 and line_h > 0)):
-            #  old = NE,
-            #  new = E
-            #  |            |
-            #  |     ==>    |
-            #  |            |
-            #
-            #  old = NE,
-            #  new = E
-            #  \         \--|
-            #   \    ==>  \ |
-            #    \         \|
-            #
-            # We're already semi-correctly oriented, so...
-            log.debug("Reorienting old_dir to {0}".format(new_dir))
-            return sweep_corner(line, new_dir, width, new_dir)
-        else:
-            #
-            #  old = NE,
-            #  new = E     /|
-            #        ==>  / |
-            #  ---        ---
-            #
-            log.debug("Need to pivot 90 degrees...")
-            # Snap to grid if not already there...
-            [(poly1, line1)] = sweep_corner(line, old_dir, width, old_dir)
-            (new_x0, new_y0, new_x1, new_y1) = line1.bounds
-            # The component by which the directions differ...
-            different_component = old_dir.name.replace(new_dir.name, "")
-            if new_dir.name == "east":
-                new_x0 = new_x1
-            elif new_dir.name == "west":
-                new_x1 = new_x0
-            elif different_component == "east":
-                new_x0 = new_x1
-                new_x1 = new_x0 + width
-            elif different_component == "west":
-                new_x1 = new_x0
-                new_x0 = new_x1 - width
-
-            if new_dir.name == "north":
-                new_y0 = new_y1
-            elif new_dir.name == "south":
-                new_y1 = new_y0
-            elif different_component == "north":
-                new_y0 = new_y1
-                new_y1 = new_y0 + width
-            elif different_component == "south":
-                new_y1 = new_y0
-                new_y0 = new_y1 - width
-
-            new_line = LineString([(new_x0, new_y0), (new_x1, new_y1)])
-            poly = loft([line1, new_line])
-            return [(poly1.union(poly), new_line)]
-    else:
-        # The two directions are at least 90 degrees apart.
-        # We'll need to sweep more than once...
-        if old_dir.is_cardinal():
-            # Snap to grid
-            [(poly1, line1)] = sweep_corner(line, old_dir, width, old_dir)
-            # Extrude to form the corner
-            (poly2, throwaway) = sweep(line1, old_dir, width)
-            (x0, y0, x1, y1) = poly2.bounds
-            if (re.search("north", new_dir.name) and
-                old_dir.name != "south"):
-                line2 = LineString(((x0, y1), (x1, y1)))
-            elif (re.search("west", new_dir.name) and
-                  old_dir.name != "east"):
-                line2 = LineString(((x0, y0), (x0, y1)))
-            elif (re.search("south", new_dir.name) and
-                  old_dir.name != "north"):
-                line2 = LineString(((x0, y0), (x1, y0)))
-            elif (re.search("east", new_dir.name) and
-                  old_dir.name != "west"):
-                line2 = LineString(((x1, y0), (x1, y1)))
-            else:
-                raise RuntimeError("Don't know how to sweep {0} from {1}"
-                                   .format(new_dir, old_dir))
-        else:
-            (left, right) = (old_dir.rotate(45), old_dir.rotate(-45))
-            log.info("Deciding whether to sweep from {0} to {1} or {2}"
-                     .format(old_dir, left, right))
-            if left.angle_from(new_dir) < right.angle_from(new_dir):
-                mid_dir = left
-            else:
-                mid_dir = right
-            [(poly1, line1)] = sweep_corner(line, old_dir, width, mid_dir)
-            [(poly2, line2)] = sweep_corner(line1, mid_dir, width, new_dir)
-
-        log.info("line1 {0}, poly1 {1}, line2 {2}, poly2 {3}"
-                 .format(to_string(line1), to_string(poly1),
-                         to_string(line2), to_string(poly2)))
-        return [(poly2.union(poly1), line2)]
-
-
-def loft(lines):
+def loft(*args):
     """Construct a polygon from the given linear cross-sections.
        ----               ----_
       /                  /     -_
@@ -340,6 +522,7 @@ def loft(lines):
           -----           \  -----
          /                 \/
     """
+    lines = list(args)
     line1 = lines.pop(0)
     assert line1.length > 0
     poly_set = set()
@@ -378,7 +561,7 @@ def loft(lines):
         if poly is None:
             log.warning("Unable to loft intuitively between {0} and {1}"
                         .format(to_string(line1), to_string(line2)))
-            poly1 = line1.union(line2).convex_hull
+            poly1 = union(line1, line2).convex_hull
             if poly1.is_valid:
                 poly = poly1
 
@@ -388,6 +571,204 @@ def loft(lines):
         line1 = line2
 
     return shapely.ops.cascaded_union(poly_set)
+
+
+def loft_to_grid(base_line, dir):
+    """Construct the resulting shape needed to connect the given line to
+    the appropriate grid points in the given direction.
+    """
+    assert isinstance(dir, Direction)
+    base_line = line(base_line)
+
+    print("Lofting {0} to the {1} to align to the grid"
+          .format(to_string(base_line), dir))
+    (p1, p2) = base_line.boundary
+    if dir.is_cardinal():
+        divisor = 10
+    else:
+        divisor = 5
+
+    # Default guesses:
+    x1 = round(p1.x / divisor) * divisor
+    x2 = round(p2.x / divisor) * divisor
+    y1 = round(p1.y / divisor) * divisor
+    y2 = round(p2.y / divisor) * divisor
+
+    if dir == Direction.W:
+        x1 = x2 = math.floor(min(p1.x, p2.x) / divisor) * divisor
+    elif dir == Direction.E:
+        x1 = x2 = math.ceil(max(p1.x, p2.x) / divisor) * divisor
+    elif dir == Direction.S:
+        y1 = y2 = math.floor(min(p1.y, p2.y) / divisor) * divisor
+    elif dir == Direction.N:
+        y1 = y2 = math.ceil(max(p1.y, p2.y) / divisor) * divisor
+    elif dir == Direction.NW:
+        x1 = math.floor(min(p1.x, p2.x) / divisor) * divisor
+        x2 = math.floor(max(p1.x, p2.x) / divisor) * divisor
+        y1 = math.ceil(min(p1.y, p2.y) / divisor) * divisor
+        y2 = math.ceil(max(p1.y, p2.y) / divisor) * divisor
+    elif dir == Direction.NE:
+        x1 = math.ceil(min(p1.x, p2.x) / divisor) * divisor
+        x2 = math.ceil(max(p1.x, p2.x) / divisor) * divisor
+        y1 = math.ceil(max(p1.y, p2.y) / divisor) * divisor
+        y2 = math.ceil(min(p1.y, p2.y) / divisor) * divisor
+    elif dir == Direction.SW:
+        x1 = math.floor(min(p1.x, p2.x) / divisor) * divisor
+        x2 = math.floor(max(p1.x, p2.x) / divisor) * divisor
+        y1 = math.floor(max(p1.y, p2.y) / divisor) * divisor
+        y2 = math.floor(min(p1.y, p2.y) / divisor) * divisor
+    elif dir == Direction.SE:
+        x1 = math.ceil(min(p1.x, p2.x) / divisor) * divisor
+        x2 = math.ceil(max(p1.x, p2.x) / divisor) * divisor
+        y1 = math.floor(min(p1.y, p2.y) / divisor) * divisor
+        y2 = math.floor(max(p1.y, p2.y) / divisor) * divisor
+
+    candidate_line = line([(x1, y1), (x2, y2)])
+    while candidate_line.crosses(base_line):
+        candidate_line = translate(candidate_line, dir, 10)
+    print("New line is {0}".format(to_string(candidate_line)))
+    return (candidate_line, loft(base_line, candidate_line))
+
+
+def find_edge_segments(poly, width, direction):
+    """Find grid-constrained line segments along the border of the given polygon
+    in the given direction with the given width.
+    Returns a list of zero or more line segments.
+    """
+
+    log.info("Finding line segments (width {0}) along the {1} edge of {2}"
+             .format(width, direction, to_string(poly)))
+
+    assert isinstance(direction, Direction)
+
+    border = line_loop(poly.exterior.coords)
+
+    (xmin, ymin, xmax, ymax) = poly.bounds
+
+    if direction == Direction.N or direction == Direction.S:
+        inter_box = box(math.floor(xmin/10)*10, ymin,
+                        math.floor(xmin/10)*10 + width, ymax)
+        offset = Direction.E
+        def check_width(intersection):
+            w = intersection.bounds[2] - intersection.bounds[0]
+            return w == width
+        def check_size(intersection, size):
+            # Make sure width matches "size" and height not too much
+            w = intersection.bounds[2] - intersection.bounds[0]
+            h = intersection.bounds[3] - intersection.bounds[1]
+            return (math.fabs(w - size) < 0.1 and h <= size)
+        if direction[1] > 0: #north
+            def prefer(option_a, option_b):
+                return (option_a.bounds[1] > option_b.bounds[1])
+        else: # south
+            def prefer(option_a, option_b):
+                return (option_a.bounds[3] < option_b.bounds[3])
+    elif direction == Direction.W or direction == Direction.E:
+        inter_box = box(xmin, math.floor(ymin/10)*10,
+                        xmax, math.floor(ymin/10)*10 + width)
+        offset = Direction.N
+        def check_width(intersection):
+            h = intersection.bounds[3] - intersection.bounds[1]
+            return h == width
+        def check_size(intersection, size):
+            # Make sure height matches "size" and width not too much
+            w = intersection.bounds[2] - intersection.bounds[0]
+            h = intersection.bounds[3] - intersection.bounds[1]
+            return (math.fabs(h - size) < 0.1 and w <= size)
+        if direction[0] < 0: #west
+            def prefer(option_a, option_b):
+                return (option_a.bounds[0] < option_b.bounds[0])
+        else: # east
+            def prefer(option_a, option_b):
+                return (option_a.bounds[2] > option_b.bounds[2])
+    elif direction == Direction.NW or direction == Direction.SE:
+        line1 = point_sweep(point(xmin, ymax), Direction.NE, 200)
+        line2 = point_sweep(point(xmax, ymin), Direction.NE, 200)
+        line3 = point_sweep(point(xmax, ymax), Direction.NW, 200)
+        line4 = point_sweep(point(xmax, ymax), Direction.SE, 200)
+        # TODO grid constraint
+        point1 = intersect(line1, line3)
+        point2 = intersect(line2, line4)
+        assert isinstance(point1, Point) and isinstance(point2, Point)
+        point3 = translate(point2, Direction.SW, width)
+        point4 = translate(point1, Direction.SW, width)
+        inter_box = polygon([point1, point2, point3, point4])
+        offset = Direction.SW
+        def check_width(intersection):
+            l = ((intersection.bounds[2] - intersection.bounds[0]) +
+                 (intersection.bounds[3] - intersection.bounds[1]))
+            return l == width
+        def check_size(intersection, size):
+            w = intersection.bounds[2] - intersection.bounds[0]
+            h = intersection.bounds[3] - intersection.bounds[1]
+            return (math.fabs(w + h - size) < 0.1)
+        if direction[1] > 0: #north
+            def prefer(option_a, option_b):
+                return (option_a.bounds[1] > option_b.bounds[1])
+        else: # south
+            def prefer(option_a, option_b):
+                return (option_a.bounds[3] < option_b.bounds[3])
+    elif direction == Direction.NE or direction == Direction.SW:
+        line1 = point_sweep(point(xmin, ymin), Direction.NW, 200)
+        line2 = point_sweep(point(xmax, ymax), Direction.NW, 200)
+        line3 = point_sweep(point(xmin, ymax), Direction.SW, 200)
+        line4 = point_sweep(point(xmin, ymax), Direction.NE, 200)
+        # TODO grid constraint
+        point1 = intersect(line1, line3)
+        point2 = intersect(line2, line4)
+        assert isinstance(point1, Point) and isinstance(point2, Point)
+        point3 = translate(point2, Direction.SE, width)
+        point4 = translate(point1, Direction.SE, width)
+        inter_box = polygon([point1, point2, point3, point4])
+        offset = Direction.SE
+        def check_width(intersection):
+            l = ((intersection.bounds[2] - intersection.bounds[0]) +
+                 (intersection.bounds[3] - intersection.bounds[1]))
+            return l == width
+        def check_size(intersection, size):
+            w = intersection.bounds[2] - intersection.bounds[0]
+            h = intersection.bounds[3] - intersection.bounds[1]
+            return (math.fabs(w + h - size) < 0.1)
+        if direction[1] > 0: #north
+            def prefer(option_a, option_b):
+                return (option_a.bounds[1] > option_b.bounds[1])
+        else: # south
+            def prefer(option_a, option_b):
+                return (option_a.bounds[3] < option_b.bounds[3])
+
+    print("box: {0}, offset: {1}".format(to_string(inter_box), offset))
+    candidates = []
+
+    while True:
+        intersection = intersect(inter_box, border)
+        log.debug("intersection: {0}".format(to_string(intersection)))
+        if intersection.length == 0:
+            break
+        best = None
+        if not hasattr(intersection, "geoms"):
+            intersection = [intersection]
+
+        segments = []
+        for segment in intersection:
+            segments += minimize_line(segment, check_width)
+        intersection = segments
+
+        for linestring in intersection:
+            if check_size(linestring, width):
+                if best is None or prefer(linestring, best):
+                    best = linestring
+
+        inter_box = translate(inter_box, offset, 10)
+
+        if best is None:
+            continue
+
+        print("Found section: {0}".format(to_string(best)))
+        candidates.append(best)
+
+    log.info("Found {0} candidate edges: {1}"
+             .format(len(candidates), [bounds_str(c) for c in candidates]))
+    return candidates
 
 
 def trim(shape, trimmer, adjacent_shape):
@@ -422,6 +803,9 @@ def trim(shape, trimmer, adjacent_shape):
     elif type(difference) is Polygon:
         if difference.intersects(adjacent_shape):
             match = difference
+        else:
+            print("{0} does not intersect {1}"
+                  .format(to_string(difference), to_string(adjacent_shape)))
 
     if match is not None:
         log.debug("Trimmed shape to fit")
@@ -434,7 +818,7 @@ def trim(shape, trimmer, adjacent_shape):
 
 def minimize_line(base_line, validator):
     """Trim the given line from both ends to the minimal line(s) that
-    satisfy the given validator function. Returns a set of 1 or 2
+    satisfy the given validator function. Returns a list of 1 or 2
     lines that satisfy this criteria.
 
     For example:
@@ -497,8 +881,13 @@ def line(coords):
     """
     if isinstance(coords, LineString):
         line = coords
-    else:
+    elif isinstance(coords, CoordinateSequence) or type(coords) is list:
+        if isinstance(coords[0], Point):
+            coords = [(point.x, point.y) for point in coords]
         line = LineString(coords)
+    else:
+        raise RuntimeError("Don't know how to construct a line segment from {0}"
+                           .format(coords))
     assert line.is_valid
     return line
 
@@ -512,13 +901,20 @@ def line_loop(coords):
     return loop
 
 
-def polygon(coords):
-    """Construct a polygon from the given coordinate sequence.
+def polygon(coords=None):
+    """Construct a polygon from the given coordinate sequence or list of points.
     """
     if isinstance(coords, Polygon):
         poly = coords
-    else:
+    elif coords is None:
+        poly = Polygon()
+    elif type(coords) is list:
+        if isinstance(coords[0], Point):
+            coords = [(point.x, point.y) for point in coords]
         poly = Polygon(coords)
+    else:
+        raise RuntimeError("Not sure how to create Polygon from {0}"
+                           .format(coords))
     assert poly.is_valid
     return poly
 
@@ -780,9 +1176,12 @@ def octagon_list(area):
 def union(*args):
     """Union the provided shapes and clean up the result as needed.
     """
-    union = shapely.ops.cascaded_union(*args)
+    if len(args) == 1:
+        args = args[0]
+    union = shapely.ops.cascaded_union(args)
     # TODO, any cleanup?
     return union
+
 
 def intersect(geometry_1, geometry_2):
     """Intersect the two given shapes and clean up the result as needed.

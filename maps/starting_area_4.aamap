@@ -3,37 +3,37 @@
   "connections": [
     {
       "__type__": "Connection", 
-      "grow_direction": "north", 
+      "direction": "north", 
       "kind": "Open", 
       "line": "<LineString: [(0, 0), (10, 0)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "west", 
+      "direction": "west", 
       "kind": "Door", 
       "line": "<LineString: [(-10, 10), (-10, 20)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "east", 
+      "direction": "east", 
       "kind": "Door", 
       "line": "<LineString: [(20, 20), (20, 10)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "west", 
+      "direction": "west", 
       "kind": "Door", 
       "line": "<LineString: [(-10, 30), (-10, 40)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "east", 
+      "direction": "east", 
       "kind": "Door", 
       "line": "<LineString: [(20, 40), (20, 30)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "north", 
+      "direction": "north", 
       "kind": "Door", 
       "line": "<LineString: [(0, 50), (10, 50)]>"
     }

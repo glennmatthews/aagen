@@ -119,6 +119,29 @@ class DungeonMap:
         return self.conglomerate_polygon.bounds
 
 
+    def flush(self):
+        """Mark all recently added elements as permanent parts of the map"""
+        for region in self.regions:
+            region.tentative = False
+        for conn in self.connections:
+            conn.tentative = False
+        for decoration in self.decorations:
+            decoration.tentative = False
+
+
+    def add_map_elements(self, elements):
+        for elem in elements:
+            if isinstance(elem, Region):
+                self.add_region(elem)
+            elif isinstance(elem, Connection):
+                self.add_connection(elem)
+            elif isinstance(elem, Decoration):
+                self.add_decoration(elem)
+            else:
+                raise RuntimeError("Not sure how to add {0} to the map!"
+                                   .format(elem))
+
+
     def add_region(self, region):
         assert isinstance(region, Region)
         if not region in self.regions:
@@ -158,7 +181,8 @@ class DungeonMap:
             for region in self.regions:
                 log.debug("Checking {0} for intersection with {1}"
                           .format(connection, region))
-                if (region.polygon.intersection(connection.line).equals(connection.line) or
+                if (region.polygon.intersection(connection.line)
+                    .equals(connection.line) or
                     (connection.polygon.intersects(region.polygon) and
                      not connection.polygon.touches(region.polygon))):
                     # TODO fix up any funky edges
@@ -287,113 +311,52 @@ class DungeonMap:
         of the given size along the given edge of the given region).
         If new_only is set then only positions leading to new (unmapped) space
         will be considered as valid.
-        Returns a list of line segments."""
+        Returns a list of CandidateConnections."""
 
         log.info("Finding options for a connection (width {0}) adjacent to "
                  "{1} in {2}".format(width, region, direction))
 
         assert isinstance(region, Region) and isinstance(direction, Direction)
 
-        # We find connection options by looking at the walls of the region
-        full_walls = aagen.geometry.line_loop(region.coords)
-        log.debug("full_walls: {0}".format(to_string(full_walls)))
-
-        (xmin, ymin, xmax, ymax) = full_walls.bounds
-        log.debug("bounds: {0}".format(aagen.geometry.bounds_str(full_walls)))
-
-        if math.fabs(direction[1]) > 0.01: # north/south
-            box = aagen.geometry.box(xmin, ymin, xmin + width, ymax)
-            offset = (10, 0)
-            def check_width(intersection):
-                w = intersection.bounds[2] - intersection.bounds[0]
-                return w == width
-            def check_size(intersection, size):
-                # Make sure width matches "size" and height not too much
-                w = intersection.bounds[2] - intersection.bounds[0]
-                h = intersection.bounds[3] - intersection.bounds[1]
-                return (math.fabs(w - size) < 0.1 and h <= size)
-            if direction[1] > 0: #north
-                def prefer(option_a, option_b):
-                    return (option_a.bounds[1] > option_b.bounds[1])
-            else: # south
-                def prefer(option_a, option_b):
-                    return (option_a.bounds[3] < option_b.bounds[3])
-        elif math.fabs(direction[0]) > 0.01: # east/west
-            box = aagen.geometry.box(xmin, ymin, xmax, ymin + width)
-            offset = (0, 10)
-            def check_width(intersection):
-                h = intersection.bounds[3] - intersection.bounds[1]
-                return h == width
-            def check_size(intersection, size):
-                # Make sure height matches "size" and width not too much
-                w = intersection.bounds[2] - intersection.bounds[0]
-                h = intersection.bounds[3] - intersection.bounds[1]
-                return (math.fabs(h - size) < 0.1 and w <= size)
-            if direction[0] < 0: #west
-                def prefer(option_a, option_b):
-                    return (option_a.bounds[0] < option_b.bounds[0])
-            else: # east
-                def prefer(option_a, option_b):
-                    return (option_a.bounds[2] > option_b.bounds[2])
-
-        log.debug("box: {0}, offset: {1}".format(to_string(box), offset))
+        segments = aagen.geometry.find_edge_segments(region.polygon, width,
+                                                     direction)
         candidates = []
-        i = 0
-        while aagen.geometry.intersect(box, full_walls).length > 0:
-            log.debug("box: {0}".format(aagen.geometry.bounds_str(box)))
-            intersection = aagen.geometry.intersect(box, full_walls)
-            log.debug("intersection: {0}".format(to_string(intersection)))
-            best = None
-            if not hasattr(intersection, "geoms"):
-                # We must be tangent to an edge of the polygon, since our
-                # intersection has both "front" and "back" in a single
-                # segment. In this case we need to trim the segment down
-                # until it only contains the "front" of the intersection.
-                # We do this by deleting points from one end of the segment
-                # until we cannot do so without decreasing the intersection
-                # width by doing so. We then do the same from the other end,
-                # and compare the two to see which is preferred
-                intersection = aagen.geometry.minimize_line(intersection,
-                                                            check_width)
-            for linestring in intersection:
-                if check_size(linestring, width):
-                    if best is None:
-                        best = linestring
-                    elif prefer(linestring, best):
-                        best = linestring
-            if best is not None:
-                log.debug("Found section: {0}"
-                          .format(aagen.geometry.bounds_str(best)))
-                valid = True
-                # Make sure it doesn't intersect any existing conns
-                for conn in region.connections:
-                    # Intersection of line and polygon...
-                    if (best.intersects(conn.polygon) and
-                        best.intersection(conn.polygon).length > 0):
-                        log.debug("Conflicts with existing conn {0}"
-                                 .format(conn))
+        for segment in segments:
+            log.debug("Evaluating candidate segment: {0}"
+                          .format(to_string(segment)))
+            valid = True
+            if aagen.geometry.grid_aligned(segment, direction):
+                conn_poly = aagen.geometry.polygon()
+            else:
+                (segment, conn_poly) = aagen.geometry.loft_to_grid(
+                    segment, direction)
+                print("conn_poly: {0}".format(to_string(conn_poly)))
+
+            # Make sure it doesn't intersect any existing conns
+            for conn in region.connections:
+                if aagen.geometry.intersect(conn.line, segment).length > 0:
+                    log.debug("Conflicts with existing conn {0}"
+                              .format(conn))
+                    valid = False
+                    break
+            if valid and new_only:
+                # Make sure it doesn't intersect any other regions
+                for test_region in self.regions:
+                    if test_region == region:
+                        continue
+                    if aagen.geometry.intersect(test_region.polygon,
+                                                segment).length > 0:
+                        log.debug("Conflicts with existing region {0}"
+                                  .format(test_region))
                         valid = False
                         break
-                if valid and new_only:
-                    # Make sure it doesn't intersect any other regions
-                    for test_region in self.regions:
-                        if test_region == region:
-                            continue
-                        if (best.crosses(test_region.polygon) or
-                            best.contains(test_region.polygon) or
-                            test_region.polygon.contains(best)):
-                            log.debug("Conflicts with existing region {0}"
-                                     .format(test_region))
-                            valid = False
-                            break
-                if valid:
-                    candidates.append(best)
-            i += 1
-            box = aagen.geometry.translate(box, *offset)
+            if valid:
+                candidates.append(CandidateConnection(segment, conn_poly,
+                                                      direction, region))
 
         log.info("{0} candidate positions were identified after inspecting "
                  "{1} possibilities"
-                 .format(len(candidates), i))
+                 .format(len(candidates), len(segments)))
         return candidates
 
 
@@ -402,112 +365,62 @@ class DungeonMap:
         given shapes adjacent to the given Connection.
         Returns a list of Candidate_Region objects"""
 
-        if connection.grow_direction.is_cardinal():
-            direction = connection.grow_direction
-        elif connection.base_direction.is_cardinal():
-            direction = connection.base_direction
-        else:
-            return []
-            # TODO
+        direction = connection.direction
 
-        log.info("Looking for positional options for region {0} "
+        width = connection.size()
+
+        log.info("Looking for positional options for region(s) {0} "
                  "adjacent to {1} in {2}"
                  .format([to_string(c) for c in shape_list],
-                         connection, direction))
+                         connection.line, direction))
 
         # Our approach is as follows:
-        # For each of the candidate coords in coords_set:
-        # Find an initial grid position so that its bounding box is adjacent
-        # to the bounding box of the conn
-        # Iteratively move the coords toward the conn until the actual polygons
-        # intersect one another. Find the trimmed polygon and store it.
-        # Reset to the original grid position and move "sideways" one grid space
-        # Repeat as many times as needed
-
-        (obj_x0, obj_y0, obj_x1, obj_y1) = connection.polygon.bounds
-        conn_box = aagen.geometry.box(*(connection.polygon.bounds))
-        (dir_x, dir_y) = direction
-
-        log.info("Adjacency direction is {0},{1}".format(dir_x, dir_y))
+        # For each of the candidate shapes in shape_list:
+        #   Find the possible edge segments on this shape
+        #   For each possible edge:
+        #     Shift the candidate shape so this edge aligns with the conn
+        #     Evaluate the fit of this possible position
 
         candidate_regions = []
-        i = 0
         for polygon in shape_list:
             log.info("Looking for positional options for {0}"
                      .format(to_string(polygon)))
 
-            (new_x0, new_y0, new_x1, new_y1) = polygon.bounds
+            edges = aagen.geometry.find_edge_segments(polygon, width,
+                                                      direction.rotate(180))
 
-            ((x0, y0),
-             (pos_x, pos_y),
-             (shift_x, shift_y)) = self.find_adjacency_options(
-                 connection.polygon, polygon, direction)
+            for edge in edges:
+                if aagen.geometry.grid_aligned(edge, direction):
+                    edge_line = edge
+                    edge_poly = None
+                else:
+                    (edge_line, edge_poly) = aagen.geometry.loft_to_grid(
+                        edge, direction.rotate(180))
+                    print("edge_poly: {0}".format(to_string(edge_poly)))
 
-            # Try each possible position where the bounding boxes intersect
-            (px, py) = (0, 0)
-            while (aagen.geometry.box(new_x0 + x0 + px, new_y0 + y0 + py,
-                                      new_x1 + x0 + px, new_y1 + y0 + py)
-                   .intersects(conn_box)):
-                log.debug("px, py: {0}, {1}".format(px, py))
-                if math.fabs(dir_y) > 0.01 and (new_x0 + x0 + px) > obj_x0:
-                    log.debug("Reached max x offset")
-                    break
-                elif math.fabs(dir_x) > 0.01 and (new_y0 + y0 + py) > obj_y0:
-                    log.debug("Reached max y offset")
-                    break
-                hit_found = False
-                # Shift the polygon towards the conn until either the actual
-                # shape intersects (a hit!) or the bounding boxes no longer
-                # intersect (a miss!)
-                (sx, sy) = (0, 0)
-                while (aagen.geometry.box(new_x0 + x0 + px + sx,
-                                          new_y0 + y0 + py + sy,
-                                          new_x1 + x0 + px + sx,
-                                          new_y1 + y0 + py + sy)
-                       .intersects(conn_box)):
-                    i += 1
-                    (dx, dy) = (x0 + px + sx, y0 + py + sy)
-                    log.debug("dx, dy: {0}, {1}".format(dx, dy))
-                    test_polygon = aagen.geometry.translate(polygon, dx, dy)
-                    # TODO try_region_as_candidate
-                    try:
-                        intersection = test_polygon.intersection(connection.polygon)
-                    except:
-                        intersection = None
-                    if (intersection is not None and
-                        intersection.area > 0):
-                        # A hit?
-                        hit_found = True
-                        # Add the connection polygon to the region
-                        test_polygon = test_polygon.union(connection.polygon)
-                        # See how much the polygon will be truncated by
-                        # the existing dungeon map
-                        trim_polygon = aagen.geometry.trim(test_polygon,
-                                                           self.conglomerate_polygon,
-                                                           connection.polygon)
-                        if trim_polygon is not None:
-                            cr = self.make_candidate_region((dx, dy),
-                                                            test_polygon,
-                                                            trim_polygon)
-                            if cr is not None:
-                                log.info("Found a match at ({x}, {y})"
-                                         .format(x=dx, y=dy))
-                                candidate_regions.append(cr)
-                        else:
-                            log.debug("Fully subsumed - on to next pos")
-                            break
-                    else:
-                        log.debug("No intersection at {x}, {y}"
-                                 .format(x=dx, y=dy))
-                        if hit_found:
-                            # We went from hitting to missing, done here!
-                            break
-                    (sx, sy) = (sx + shift_x, sy + shift_y)
-                # Okay, we exhausted that position, move on to the next
-                (px, py) = (px + pos_x, py + pos_y)
-        log.info("{0} candidate regions were identified after inspecting "
-                 "{1} possibilities"
-                 .format(len(candidate_regions), i))
+                dx = connection.line.bounds[0] - edge_line.bounds[0]
+                dy = connection.line.bounds[1] - edge_line.bounds[1]
+
+                test_polygon = aagen.geometry.translate(polygon, dx, dy)
+                if edge_poly is not None:
+                    test_polygon = aagen.geometry.union(
+                        test_polygon,
+                        aagen.geometry.translate(edge_poly, dx, dy))
+                log.info("test_polygon: {0}".format(to_string(test_polygon)))
+                trim_polygon = aagen.geometry.trim(test_polygon,
+                                                   self.conglomerate_polygon,
+                                                   connection.polygon)
+                if trim_polygon is None:
+                    log.info("Polygon trimmed to nothing!")
+                    continue
+                cr = self.make_candidate_region((dx, dy), # TODO
+                                                test_polygon, trim_polygon)
+                if cr is not None: # TODO
+                    log.info("Found a match at ({x}, {y})"
+                             .format(x=dx, y=dy))
+                    candidate_regions.append(cr)
+
+        log.info("Found {0} candidate regions".format(len(candidate_regions)))
         return candidate_regions
 
 
@@ -563,6 +476,8 @@ class MapElement(object):
     def __init__(self, polygon):
         self.id = self._ids.next()
         self.polygon = aagen.geometry.polygon(polygon)
+        self.tentative = True
+
 
     def __getattr__(self, name):
         if name == "coords":
@@ -691,25 +606,36 @@ class Region(MapElement):
         log.debug("Added ({0}) to ({1})".format(decoration, self))
 
 
+class CandidateConnection(MapElement):
+    """Model class for temporary objects representing potiential locations
+    for a Connection.
+    """
+
+    def __init__(self, line, polygon, dir, parent_region):
+        super(CandidateConnection, self).__init__(polygon)
+
+        self.line = line
+        self.dir = dir
+        self.region = parent_region
+
+        log.debug("Constructed {0}".format(self))
+
+    def __repr__(self):
+        return ("<CandidateConnection {0}: line {1}, poly {2}, dir {3}>"
+                .format(self.id, to_string(self.line), to_string(self.polygon),
+                        self.dir.name))
+
+
 class Connection(MapElement):
     """Model class. Represents a connection between two adjacent Region objects,
     such as a door or archway. Modeled as a line segment which corresponds to
     the adjacent edge shared by the two Regions.
 
+    A Connection is always aligned to the grid (vertically, horizontally, or
+    diagonally) and always has a width which is either 5' or a multiple of 10'.
+
     A Connection that only has one Region is "incomplete" and forms a point for
-    additional expansion/exploration of the dungeon. To assist with intelligent
-    construction of a new Region, a Connection defines the following:
-
-    - A "just beyond" polygon region defining the space immediately past the
-      Connection - i.e., the minimal area that the new Region will need to cover
-      in order to be fully connected to this Connection. This polygon is
-      constructed by extruding the baseline of the Connection by 10' in its
-      primary direction, then 45 degrees off from this direction to the left and
-      right, and taking the intersection of these three polygons.
-
-    - A set of "likely expansion" polygons showing areas where this Connection
-      might conceivably expand to... TODO
-
+    additional expansion/exploration of the dungeon.
 """
 
     # Kinds of connections
@@ -720,8 +646,7 @@ class Connection(MapElement):
     ARCH = "Arch"
     __kinds = [OPEN, DOOR, SECRET, ONEWAY, ARCH]
 
-    def __init__(self, kind, line_coords, regions=None,
-                 grow_dir=None):
+    def __init__(self, kind, line_coords, regions=None, dir=None):
         """Construct a Connection along the given edge"""
         assert kind in Connection.__kinds
         self.kind = kind
@@ -733,40 +658,23 @@ class Connection(MapElement):
         log.info("Creating Connection ({kind}) along {line}"
                  .format(kind=kind, line=to_string(self.line)))
 
-        # The "base direction" of a connection is a unit direction
-        # perpendicular to its base line
-        self.base_direction = Direction(baseline=line_coords)
+        self.direction = Direction.normal_to(line_coords)
+        if dir is not None:
+            if self.direction.angle_from(dir) > 90:
+                self.direction = self.direction.rotate(180)
+            if self.direction.angle_from(dir) > 45:
+                log.warning("Angle between normal {0} and requested {1} "
+                            "directions is too great: {2}!"
+                            .format(self.direction, dir,
+                                    self.direction.angle_from(dir)))
 
-        # The growth direction of a connection is the direction in which
-        # new regions (mostly Passages) will by default be extended.
-        # If not specified it is the same as the base direction.
-        if grow_dir is None:
-            self.grow_direction = self.base_direction
-        else:
-            self.grow_direction = Direction(vector=grow_dir)
-
-        # The base and grow directions should never be more than
-        # 45 degrees different:
-        angle =  self.base_direction.angle_from(self.grow_direction)
-        if angle > 90:
-            # Must have got a sign wrong somewhere...
-            self.base_direction = self.base_direction.rotate(180)
-            angle =  self.base_direction.angle_from(self.grow_direction)
-        if angle > 45:
-            log.warning("Angle between base {0} and grow {1} directions "
-                        "is too great: {2}!".format(self.base_direction,
-                                                    self.grow_direction,
-                                                    angle))
-
-        (poly1, junk) = aagen.geometry.sweep(self.line,
-                                             self.base_direction, 10)
+        # TODO remove this?
+        (poly1, _) = aagen.geometry.sweep(self.line, self.direction, 10)
         assert poly1.is_valid
-        (poly2, junk) = aagen.geometry.sweep(self.line,
-                                             self.base_direction.rotate(-45),
-                                             10)
-        (poly3, junk) = aagen.geometry.sweep(self.line,
-                                             self.base_direction.rotate(45),
-                                             10)
+        (poly2, _) = aagen.geometry.sweep(self.line, self.direction.rotate(-45),
+                                          10)
+        (poly3, _) = aagen.geometry.sweep(self.line, self.direction.rotate(45),
+                                          10)
         if poly2.is_valid and poly2.area > 0:
             poly1 = poly1.intersection(poly2).convex_hull
         if poly3.is_valid and poly3.area > 0:
@@ -782,28 +690,79 @@ class Connection(MapElement):
                 self.add_region(region)
                 region.add_connection(self)
 
+        # TODO if dir == None and len(regions) == 1, make sure that
+        # the derived normal direction points AWAY from the Region?
+
         # Add helper polygons for drawing
+        start = self.line.boundary[0]
+        mid = self.line.interpolate(self.line.length / 2)
+        mid1 = self.line.interpolate(2)
+        mid2 = self.line.interpolate(self.line.length - 2)
+        end = self.line.boundary[1]
+        sub_line = aagen.geometry.line([mid1, mid2])
+        left = sub_line.parallel_offset(1.5, 'left')
+        right = sub_line.parallel_offset(1.5, 'right')
         if kind == Connection.DOOR:
-            start = self.line.interpolate(2)
-            end = self.line.interpolate(self.line.length - 2)
-            sub_line = aagen.geometry.line([(start.x, start.y), (end.x, end.y)])
-            left = sub_line.parallel_offset(2, 'left')
-            right = sub_line.parallel_offset(2, 'right')
-            self.draw_lines = aagen.geometry.line_loop(list(left.coords) +
-                                                       list(right.coords))
+            self.draw_lines = [self.line,
+                               aagen.geometry.line_loop(list(left.coords) +
+                                                        list(right.coords))]
+        elif kind == Connection.ARCH:
+            self.draw_lines = [aagen.geometry.line([start, mid1]),
+                               aagen.geometry.line([mid2, end]),
+                               aagen.geometry.line([left.boundary[0],
+                                                    right.boundary[1]]),
+                               aagen.geometry.line([left.boundary[1],
+                                                    right.boundary[0]])]
+        elif kind == Connection.OPEN:
+            self.draw_lines = []
+        elif kind == Connection.ONEWAY:
+            (door_poly, _) = aagen.geometry.sweep(sub_line,
+                                                  self.direction.rotate(180),
+                                                  1.5)
+            door_ring = aagen.geometry.line_loop(door_poly.exterior.coords)
+            arrow_point = aagen.geometry.translate(mid, self.direction, 3)
+            arrow_line1 = aagen.geometry.point_sweep(arrow_point,
+                                                     self.direction.rotate(-45),
+                                                     -2)
+            arrow_line2 = aagen.geometry.point_sweep(arrow_point,
+                                                     self.direction.rotate(45),
+                                                     -2)
+            self.draw_lines = [self.line, door_ring,
+                               aagen.geometry.line([mid, arrow_point]),
+                               arrow_line1, arrow_line2]
+        elif kind == Connection.SECRET:
+            # Construct an "S" consisting of two 3/4 circles
+            circle1 = (aagen.geometry.translate(mid, self.direction, 2)
+                       .buffer(2, resolution=8))
+            # The circle consists of 33 points counterclockwise from (2, 0)
+            arc1 = aagen.geometry.line(circle1.exterior.coords[16:] +
+                                       circle1.exterior.coords[0:8])
+            arc1 = aagen.geometry.rotate(arc1, self.direction)
+            circle2 = (aagen.geometry.translate(mid, self.direction, -2)
+                       .buffer(2, resolution=8))
+            arc2 = aagen.geometry.line(circle2.exterior.coords[0:24])
+            arc2 = aagen.geometry.rotate(arc2, self.direction)
+            self.draw_lines = [self.line, arc1, arc2]
         else:
-            self.draw_lines = None
+            raise LookupError("Don't know how to define draw_lines for {0}"
+                              .format(kind))
 
         log.debug("Constructed {0}".format(self))
         return
 
 
     def __repr__(self):
-        return ("<Connection {id}: {kind} at {loc} to {base}/{dir}>"
+        return ("<Connection {id}: {kind} at {loc} to {dir}>"
                 .format(id=self.id, kind=self.kind,
                         loc=aagen.geometry.bounds_str(self.polygon),
-                        areas=self.regions, base=self.base_direction,
-                        dir=self.grow_direction))
+                        areas=self.regions, dir=self.direction))
+
+
+    def size(self):
+        """Return the size ("width") of this connection"""
+        # This is a hack, but good enough for now
+        return max(self.line.bounds[2] - self.line.bounds[0],
+                   self.line.bounds[3] - self.line.bounds[1])
 
 
     def get_line_coords(self):
@@ -834,11 +793,11 @@ class Connection(MapElement):
             # Fix up any funky edges... TODO
             #if not self.polygon.intersects(region.polygon):
             #    extension = aagen.geometry.sweep(self.base_line,
-            #                                     self.grow_direction, 10))
+            #                                     self.direction, 10))
             #    if not extension.intersects(region.polygon):
             #        # Try growing in the reverse direction
             #        extension = aagen.geometry.sweep(self.base_line,
-            #                                         self.grow_direction, -10))
+            #                                         self.direction, -10))
             #    if not extension.intersects(region.polygon):
             #        raise RuntimeError("Connection {0} !adjacent to region {1}"
             #                           .format(self, region))

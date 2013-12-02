@@ -29,7 +29,7 @@ class MapEncoder(JSONEncoder):
                 '__type__': 'Connection',
                 'kind': obj.kind,
                 'line': obj.line,
-                'grow_direction': obj.grow_direction
+                'direction': obj.direction
             }
         elif isinstance(obj, Decoration):
             return {
@@ -55,13 +55,19 @@ def map_from_dict(obj):
     if obj['__type__'] == 'Region':
         return Region(obj['kind'], aagen.geometry.from_string(obj['polygon']))
     elif obj['__type__'] == 'Connection':
-        return Connection(obj['kind'],
-                          aagen.geometry.from_string(obj['line']),
-                          grow_dir=Direction(obj['grow_direction']))
+        # backward compatibility
+        if 'grow_direction' in obj.keys():
+            return Connection(obj['kind'],
+                              aagen.geometry.from_string(obj['line']),
+                              dir=Direction.named(obj['grow_direction']))
+        else:
+            return Connection(obj['kind'],
+                              aagen.geometry.from_string(obj['line']),
+                              dir=Direction.named(obj['direction']))
     elif obj['__type__'] == 'Decoration':
         return Decoration(obj['kind'],
                           aagen.geometry.from_string(obj['polygon']),
-                          Direction(obj['orientation']))
+                          Direction.named(obj['orientation']))
     elif obj['__type__'] == 'DungeonMap':
         dungeon_map = DungeonMap()
         for reg in obj['regions']:

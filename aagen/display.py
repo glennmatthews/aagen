@@ -200,10 +200,10 @@ class DungeonDisplay:
 
 
         for region in self.dungeon_map.regions:
+            color = (0, 0, 0) if not region.tentative else (0, 255, 0)
             coords_list = region.get_wall_coords()
             for coords in coords_list:
                 coords = self.map_to_screen(coords)
-                color = (0, 0, 0)
                 pygame.draw.lines(self.surface, color, False, coords, 2)
 
         for conn in self.dungeon_map.connections:
@@ -212,92 +212,25 @@ class DungeonDisplay:
             if verbosity > 0:
                 # Draw the directional vectors of this connection for debugging
                 endpoint1 = self.map_to_screen((conn.line.centroid.x +
-                                                7*conn.base_direction[0],
+                                                7*conn.direction[0],
                                                 conn.line.centroid.y +
-                                                7*conn.base_direction[1]))
-                endpoint2 = self.map_to_screen((conn.line.centroid.x +
-                                                5*conn.grow_direction[0],
-                                                conn.line.centroid.y +
-                                                5*conn.grow_direction[1]))
+                                                7*conn.direction[1]))
                 pygame.draw.line(self.surface, (255, 0, 0),
                                  centroid, endpoint1, 3)
-                pygame.draw.line(self.surface, (0, 255, 0),
-                                 centroid, endpoint2, 2)
 
-            color = (0, 0, 0)
-            coords = self.map_to_screen(conn.get_poly_coords())
-            if conn.kind == Connection.DOOR:
-                if verbosity > 0:
-                    door_color = (240, 255, 240)
-                else:
-                    door_color = (255, 255, 255)
-                pygame.draw.polygon(self.surface, door_color,
-                                    self.map_to_screen(conn.draw_lines.coords))
-                pygame.draw.lines(self.surface, color, False,
-                                  self.map_to_screen(conn.get_line_coords()), 2)
-                pygame.draw.polygon(self.surface, color,
-                                    self.map_to_screen(conn.draw_lines.coords),
-                                    2)
-            elif conn.kind == Connection.OPEN:
-                pass
-            elif conn.kind == Connection.ARCH:
-                start = self.map_to_screen(conn.line.coords[0])
-                open1 = self.map_to_screen(conn.line.interpolate(2))
-                pygame.draw.line(self.surface, color, start, open1, 2)
-                end = self.map_to_screen(conn.line.coords[-1])
-                open2 = self.map_to_screen(conn.line.interpolate(
-                    conn.line.length - 2))
-                pygame.draw.line(self.surface, color, open2, end, 2)
-            elif conn.kind == Connection.ONEWAY:
-                pygame.draw.lines(self.surface, color, False,
-                                  self.map_to_screen(conn.get_line_coords()), 2)
-                # Draw the one-way door
-                points = [(2, -1), (3,0), (2, 1), (3, 0),
-                          (0,0), (0, 2), (-2, 2),
-                          (-2, -2), (0, -2), (0,0)]
-                points = rotate(points, conn.base_direction)
-                coords = []
-                for point in points:
-                    coords.append((point[0] + conn.line.centroid.x,
-                                   point[1] + conn.line.centroid.y))
-                coords = self.map_to_screen(coords)
-                pygame.draw.lines(self.surface, color, False, coords, 2)
-                log.debug("One-way door: {0}".format(coords))
-            elif conn.kind == Connection.SECRET:
-                pygame.draw.lines(self.surface, color, False,
-                                  self.map_to_screen(conn.get_line_coords()), 2)
-                # Draw an S
-                angle1a = math.radians(-90 + conn.base_direction.degrees)
-                angle1b = math.radians(180 + conn.base_direction.degrees)
-                angle2a = math.radians(90 + conn.base_direction.degrees)
-                angle2b = math.radians(360 + conn.base_direction.degrees)
-                point_1 = rotate((1.9, 0), conn.base_direction)
-                point_2 = rotate((-1.9, 0), conn.base_direction)
-                dx = conn.line.centroid.x
-                dy = conn.line.centroid.y
-                rect_1 = self.map_to_screen([(point_1[0] - 2 + dx,
-                                              point_1[1] + 2 + dy),
-                                             (point_1[0] + 2 + dx,
-                                              point_1[1] - 2 + dy)])
-                pygame.draw.arc(self.surface, color,
-                                [rect_1[0][0],
-                                 rect_1[0][1],
-                                 rect_1[1][0] - rect_1[0][0],
-                                 rect_1[1][1] - rect_1[0][1]],
-                                angle1a, angle1b, 2)
-                rect_2 = self.map_to_screen([(point_2[0] - 2 + dx,
-                                              point_2[1] + 2 + dy),
-                                             (point_2[0] + 2 + dx,
-                                              point_2[1] - 2 + dy)])
-                pygame.draw.arc(self.surface, color,
-                                [rect_2[0][0],
-                                 rect_2[0][1],
-                                 rect_2[1][0] - rect_2[0][0],
-                                 rect_2[1][1] - rect_2[0][1]],
-                                angle2a, angle2b, 2)
+            color = (0, 0, 0) if not conn.tentative else (0, 255, 0)
+            if verbosity > 0:
+                door_color = (240, 255, 240)
             else:
-                raise LookupError("Don't know how to draw foreground for {0}"
-                                  .format(conn.kind))
+                door_color = (255, 255, 255)
+            coords = self.map_to_screen(conn.get_poly_coords())
+            for line in conn.draw_lines:
+                if line.is_ring:
+                    pygame.draw.polygon(self.surface, door_color,
+                                        self.map_to_screen(line.coords))
+            for line in conn.draw_lines:
+                pygame.draw.lines(self.surface, color, False,
+                                  self.map_to_screen(line.coords), 2)
 
         for dec in self.dungeon_map.decorations:
             if dec.kind == Decoration.STAIRS:

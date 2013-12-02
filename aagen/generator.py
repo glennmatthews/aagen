@@ -11,6 +11,7 @@ import random
 import math
 from .map import DungeonMap, Region, Connection, Decoration
 from .display import DungeonDisplay
+from .geometry import to_string
 import aagen.geometry
 from aagen.direction import Direction
 
@@ -26,6 +27,21 @@ def d20():
     roll = random.randint(1, 20)
     log.info("d20 roll: {0}".format(roll))
     return roll
+
+
+def filtered(l, key, epsilon=0):
+    """Combination of sorted() and filter().
+    Sorts based on the given criterion, then discards any list elements whose
+    value for this criterion is worse than the best element by more than
+    the given epsilon.
+    """
+    new_l = sorted(l, key=key)
+    best = key(new_l[0])
+    for i in range(0, len(new_l)):
+        if key(new_l[i]) > best + epsilon:
+            break
+    new_l = new_l[:i+1]
+    return new_l
 
 
 class DungeonGenerator:
@@ -59,12 +75,12 @@ class DungeonGenerator:
         #    stairs_coords = rotate(stairs_coords, -90)
         stairs = Region(Region.PASSAGE, stairs_coords)
         stairs.add_decoration(Decoration.Stairs((5, -10), (10, 20),
-                                                Direction(Direction.N)))
+                                                Direction.N))
         dungeon_map.add_region(stairs)
 
         stairs_to_room = Connection(Connection.OPEN,
                                     [stairs_coords[0], stairs_coords[3]],
-                                    [stairs], (0, 1))
+                                    stairs, Direction.N)
         dungeon_map.add_connection(stairs_to_room)
         log.info("Adding initial random room adjacent to stairs")
         self.generate_room(Region.ROOM, stairs_to_room)
@@ -80,6 +96,9 @@ class DungeonGenerator:
 
 
     def continue_passage(self, connection):
+        """Continue a passage from the given Connection.
+        """
+
         print("Rolling for passage continuation from {0}".format(connection))
 
         roll = d20()
@@ -95,11 +114,8 @@ class DungeonGenerator:
             self.print_roll(roll, "The passage branches; each branch "
                             "continues another 30 feet")
             new_conns = self.generate_side_passage(connection)
-            # For now the passage growth is done in generate_side_passage()
-            # but really all generate_side_passage() should do is generate
-            # the intersection and the conns leaving it... TODO
-            #for conn in new_conns:
-            #    self.extend_passage(conn, 30)
+            for conn in new_conns:
+                self.extend_passage(conn, 30)
             return
         elif roll <= 13:
             self.print_roll(roll, "Passage turns then continues 30 feet")
@@ -136,6 +152,8 @@ class DungeonGenerator:
 
 
     def generate_space_beyond_door(self, connection):
+        """Randomly generate the Region beyond the given connection.
+        """
         print("The door ({0}) opens...".format(connection))
 
         roll = d20()
@@ -153,15 +171,15 @@ class DungeonGenerator:
             self.print_roll(roll, "A passage at a 45-degree angle to the left "
                             "or right")
             self.extend_passage(connection, 30,
-                                [connection.grow_direction.rotate(45),
-                                 connection.grow_direction.rotate(-45)])
+                                [connection.direction.rotate(45),
+                                 connection.direction.rotate(-45)])
             return
         elif roll <= 11:
             self.print_roll(roll, "A passage at a 45-degree angle to the right "
                             "or left")
             self.extend_passage(connection, 30,
-                                [connection.grow_direction.rotate(-45),
-                                 connection.grow_direction.rotate(45)])
+                                [connection.direction.rotate(-45),
+                                 connection.direction.rotate(45)])
             return
         elif roll <= 18:
             self.print_roll(roll, "The door opens into a room")
@@ -178,8 +196,12 @@ class DungeonGenerator:
 
 
     def generate_side_passage(self, connection):
+        """Construct an intersection between the current passage and one or
+        more side passages. Returns a list of Connections (with a new Region
+        implicitly shared between them).
+        """
         print("A side passage branches off...")
-        base_dir = connection.grow_direction
+        base_dir = connection.direction
 
         roll = d20()
 
@@ -230,29 +252,13 @@ class DungeonGenerator:
 
         new_width = self.roll_passage_width()
 
-        conns = []
-        polygon = None
-        for new_dir in dirs:
-            if new_dir == base_dir:
-                # Continue 30' past the width of the side passage
-                distance = 30 + new_width
-            else:
-                # Side passage continues 30'
-                distance = 30
-            (poly, new_line) = aagen.geometry.sweep(connection.line, new_dir,
-                                                    distance, base_dir,
-                                                    new_width, fixup=True)
-            if polygon is None:
-                polygon = poly
-            else:
-                polygon = polygon.union(poly)
-            conns.append(Connection(Connection.OPEN, new_line,
-                                    grow_dir=new_dir))
+        (polygon, exit_dict) = aagen.geometry.construct_intersection(
+            connection.line, base_dir, dirs, new_width)
 
         region = Region(Region.PASSAGE, polygon)
         region.add_connection(connection)
-        for conn in conns:
-            region.add_connection(conn)
+        conns = [Connection(Connection.OPEN, exit_line, region, exit_dir) for
+                 (exit_dir, exit_line) in exit_dict.items()]
         self.dungeon_map.add_region(region)
         return conns
 
@@ -285,12 +291,14 @@ class DungeonGenerator:
 
 
     def turn_passage(self, connection):
-        """Roll for a passage turning"""
+        """Roll for a passage turning. Returns the new Connection that results
+        and implicitly the new Region that was created.
+        """
         print("Generating a turn in the passage...")
 
         roll = d20()
 
-        base_dir = connection.grow_direction
+        base_dir = connection.direction
 
         if roll <= 8:
             self.print_roll(roll, "It turns 90 degrees to the left")
@@ -315,19 +323,19 @@ class DungeonGenerator:
 
         log.info("Passage turns from {0} to {1} and becomes {2} wide"
                  .format(base_dir, new_dir, width))
-        line_poly_list = aagen.geometry.sweep_corner(connection.line, base_dir,
-                                                     width, new_dir)
-        # TODO choose?
-        (poly, new_line) = line_poly_list[0]
+        (poly, exit_dict) = aagen.geometry.construct_intersection(
+            connection.line, base_dir, [new_dir], width)
+        new_line = exit_dict[new_dir]
+
         if poly.area > 0:
             region = Region(Region.PASSAGE, poly)
             region.add_connection(connection)
-            new_conn = Connection(Connection.OPEN, new_line, [region], new_dir)
+            new_conn = Connection(Connection.OPEN, new_line, region, new_dir)
             self.dungeon_map.add_region(region)
             return new_conn
         else:
             log.warning("Corner is already valid!")
-            connection.grow_direction = new_dir
+            connection.direction = new_dir
             return connection
 
 
@@ -360,27 +368,43 @@ class DungeonGenerator:
 
         if num_exits > 0:
             # TODO: num_exits -= len(new_region.connections) ??
-            exit_base_dir = (connection.grow_direction
-                             if connection.grow_direction.is_cardinal() else
-                             connection.base_direction)
+            exit_base_dir = connection.direction
             # TODO use actual adjacency direction?
             for i in range(0, num_exits):
                 self.generate_room_exit(new_region, exit_kind, exit_base_dir)
         else:
             print("No normal exits were generated - check for secret doors")
-            for direction in Direction.CARDINAL():
+            for direction in Direction.CARDINAL:
                 candidates = self.dungeon_map.find_options_for_connection(
                     10, new_region, direction)
                 for candidate in candidates:
                     roll = d20()
                     if roll <= 5:
                         self.print_roll(roll, "Secret door here!")
-                        conn = Connection(Connection.SECRET, candidate.coords,
+                        conn = Connection(Connection.SECRET, candidate.line,
                                           new_region, direction)
                         new_region.add_connection(conn)
                         self.dungeon_map.add_connection(conn)
                     else:
                         self.print_roll(roll, "No secret door here")
+
+
+    def select_best_connection(self, candidate_connections):
+        """Choose the best option amongst the provided candidate connections.
+        """
+        if len(candidate_connections) == 0:
+            raise RuntimeError("No candidate connections were found!")
+
+        print("Choosing the best placement for a connections...")
+
+        # Sort by least additional area added to the region
+        # (only really an issue when connecting to an unusually-shaped room!)
+        # and discard those that don't make the cut
+        candidate_connections = filtered(candidate_connections,
+                                         lambda r: r.polygon.area)
+
+        # Randomly choose amongst the rest
+        return random.choice(candidate_connections)
 
 
     def select_best_candidate(self, candidate_regions):
@@ -451,16 +475,14 @@ class DungeonGenerator:
         log.debug("Candidates: {0}"
                  .format("\n".join(str(r) for r in candidate_regions)))
 
-        # Least truncation
-        candidate_regions = sorted(candidate_regions,
-                                   key=lambda r: r.amount_truncated)
+        # Least truncation - discard all those that don't make the cut!
+        candidate_regions = filtered(candidate_regions,
+                                     key=lambda r: r.amount_truncated,
+                                     epsilon=50)
         log.debug("Candidates: {0}"
                  .format("\n".join(str(r) for r in candidate_regions)))
 
-        # TODO - select between multiple equivalent options at random?
-        # Or add more criteria?
-
-        selected_region = candidate_regions[0]
+        selected_region = random.choice(candidate_regions)
         log.debug("Selected candidate {0}".format(selected_region))
         return selected_region
 
@@ -595,9 +617,9 @@ class DungeonGenerator:
             self.print_roll(roll, "1-4 exits: got {0} exits".format(exits))
         else:
             exits = 1
-            self.print_roll(roll, "1 exit of unusual type")
             exit_kind = (Connection.ARCH if room.kind == Region.ROOM
                          else Connection.DOOR)
+            self.print_roll(roll, "1 exit of unusual type ({0})".format(exit_kind))
 
         log.info("Room has {0} {1}s".format(exits, exit_kind))
         return (exits, exit_kind)
@@ -643,6 +665,9 @@ class DungeonGenerator:
             log.debug(candidates)
             if len(candidates) > 0:
                 break
+            if exit_width > 10:
+                log.warning("Couldn't find any options for a {0}' exit - "
+                            "retry with reduced width".format(exit_width))
             exit_width -= 10
 
         if len(candidates) == 0:
@@ -680,14 +705,15 @@ class DungeonGenerator:
             return None
 
         # For now just pick one at random:
-        candidate = random.choice(candidates)
-        conn = Connection(exit_kind, candidate.coords, room, exit_dir)
+        candidate = self.select_best_connection(candidates)
+        room.polygon = aagen.geometry.union(room.polygon, candidate.polygon)
+        conn = Connection(exit_kind, candidate.line, room, exit_dir)
         room.add_connection(conn)
         self.dungeon_map.add_connection(conn)
 
         if exit_kind == Connection.ARCH:
             # Now construct the passage
-            possible_directions = self.roll_passage_exit_directions(exit_dir)
+            possible_directions = self.roll_passage_exit_directions(conn.direction)
             self.extend_passage(conn, 30, possible_directions)
 
 
@@ -749,8 +775,7 @@ class DungeonGenerator:
         Returns the resulting passage or None """
 
         if possible_directions is None:
-            possible_directions = [connection.grow_direction]
-
+            possible_directions = [connection.direction]
 
         # Order of preference:
         # 1) First possible direction, full distance, no truncation
@@ -765,19 +790,27 @@ class DungeonGenerator:
             length = distance
             while length > 0:
                 for direction in possible_directions:
-                    (polygon, endwall) = aagen.geometry.sweep(connection.line,
-                                                              direction,
-                                                              length,
-                                                              connection.base_direction,
-                                                              fixup=True)
+                    if direction != connection.direction:
+                        (fixup_poly, exit_dict) = (
+                            aagen.geometry.construct_intersection(
+                                connection.line, connection.direction,
+                                [direction], connection.size()
+                            ))
+                        base_line = exit_dict[direction]
+                    else:
+                        base_line = connection.line
+                        fixup_poly = aagen.geometry.polygon()
+                    (polygon, endwall) = aagen.geometry.sweep(
+                        base_line, direction, length,
+                        connection.direction)
+                    polygon = aagen.geometry.union(polygon, fixup_poly)
                     candidate = self.dungeon_map.try_region_as_candidate(
                         polygon, connection)
                     if candidate is not None:
-                        pass
-                        #if not truncation and not candidate.amount_truncated > 0:
-                        #    log.info("Truncated by {0} - not interested"
-                        #             .format(candidate.amount_truncated))
-                        #    candidate = None
+                        if not truncation and candidate.amount_truncated > 0:
+                            log.info("Truncated by {0} - not interested"
+                                     .format(candidate.amount_truncated))
+                            candidate = None
                     if candidate is not None:
                         selected = candidate
                     #candidate_regions = (
@@ -800,21 +833,18 @@ class DungeonGenerator:
                         if selected.amount_truncated == 0:
                             # add Open connection to far end of passage if
                             # it doesn't collide with the geometry
-                            #endpoint1 = (line[0][0] + direction[0] * length,
-                            #             line[0][1] + selected.offset[1])
-                            #endpoint2 = (line[1][0] + selected.offset[0],
-                            #             line[1][1] + selected.offset[1])
-                            conn2 = Connection(Connection.OPEN,
-                                               endwall,
-                                               #adj_dir=connection.adjacency_direction,
-                                               grow_dir=direction)
-                            if conn2.polygon.boundary.crosses(
-                                    self.dungeon_map.conglomerate_polygon):
+                            if (aagen.geometry.intersect(
+                                    endwall,
+                                    self.dungeon_map.conglomerate_polygon)
+                                .length == 0):
+                                conn2 = Connection(Connection.OPEN,
+                                                   endwall,
+                                                   new_region,
+                                                   direction)
+                            else:
                                 log.info("Not adding Open at end of passage {0}"
                                          "because it intersects the existing "
-                                         "dungeon".format(conn2))
-                            else:
-                                new_region.add_connection(conn2)
+                                         "dungeon".format(to_string(endwall)))
                         self.dungeon_map.add_region(new_region)
                         return new_region
                     # No luck - try new direction?
@@ -840,6 +870,7 @@ class DungeonGenerator:
         starting from the specified connection or a random one"""
 
         print("\n\n\n----------Step----------")
+        self.dungeon_map.flush()
         log.info(self.dungeon_map)
         if connection is None:
             # Choose a connection at random

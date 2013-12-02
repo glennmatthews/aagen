@@ -3,61 +3,61 @@
   "connections": [
     {
       "__type__": "Connection", 
-      "grow_direction": "north", 
+      "direction": "north", 
       "kind": "Open", 
       "line": "<LineString: [(0, 0), (10, 0)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "north", 
+      "direction": "north", 
       "kind": "Door", 
       "line": "<LineString: [(0, 30), (10, 30)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "east", 
+      "direction": "east", 
       "kind": "Arch", 
       "line": "<LineString: [(-10, 10), (-10, 20)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "west", 
+      "direction": "west", 
       "kind": "Door", 
       "line": "<LineString: [(-70, 10), (-70, 20)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "north", 
+      "direction": "north", 
       "kind": "Open", 
       "line": "<LineString: [(-40, 40), (-30, 40)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "south", 
+      "direction": "south", 
       "kind": "Open", 
       "line": "<LineString: [(-30, -10), (-40, -10)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "west", 
+      "direction": "west", 
       "kind": "Arch", 
       "line": "<LineString: [(20, 20), (20, 10)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "east", 
+      "direction": "east", 
       "kind": "Door", 
       "line": "<LineString: [(80, 20), (80, 10)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "north", 
+      "direction": "north", 
       "kind": "Open", 
       "line": "<LineString: [(40, 40), (50, 40)]>"
     }, 
     {
       "__type__": "Connection", 
-      "grow_direction": "south", 
+      "direction": "south", 
       "kind": "Open", 
       "line": "<LineString: [(50, -10), (40, -10)]>"
     }

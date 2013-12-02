@@ -1,0 +1,124 @@
+#!/usr/bin/env python
+# construct_intersection - unit test for geometry.construct_intersection()
+
+# Fixup sys.path to point to the module
+import sys, os
+path = os.path.abspath(sys.argv[0])
+while os.path.dirname(path) != path:
+    if os.path.exists(os.path.join(path, 'aagen', '__init__.py')):
+        sys.path.insert(0, path)
+        break
+    path = os.path.dirname(path)
+
+import pygame
+import logging
+import traceback
+import argparse
+
+from aagen.map import DungeonMap, Region, Connection
+from aagen.display import DungeonDisplay
+from aagen.direction import Direction
+from aagen.geometry import construct_intersection
+
+import aagen.geometry
+
+log = logging.getLogger('aagen')
+
+parser = argparse.ArgumentParser(description="AA Dungeon Generator")
+
+parser.add_argument('-v', '--verbose', action='count', default=0,
+                    help="""Increase across-the-board verbosity of the program.
+                    Repeatable for even more verbosity.""")
+
+
+def generate_intersections(dungeon_map, width, exit_width):
+    dungeon_map.__init__()
+    x0 = 0
+    y0 = 0
+    for base_dir in [Direction.N, Direction.NE]:
+        for sweep_dir in (base_dir.rotate(90), base_dir.rotate(-90)):
+            x0 = 0
+            y0 -= 50
+            for exits in [[base_dir.rotate(135)],
+                          [base_dir.rotate(90)],
+                          [base_dir.rotate(45)],
+                          [base_dir.rotate(135), base_dir],
+                          [base_dir.rotate(90), base_dir],
+                          [base_dir.rotate(45), base_dir],
+                          [base_dir.rotate(135), base_dir.rotate(-135)],
+                          [base_dir.rotate(135), base_dir.rotate(-90)],
+                          [base_dir.rotate(135), base_dir.rotate(-45)]]:
+                x0 += 50
+                base_point = (x0, y0)
+                log.info("Intersection from {0} (w {1}) to {2} (w {3})"
+                         .format(base_dir, width, exits, exit_width))
+                base_line = aagen.geometry.point_sweep(
+                    aagen.geometry.point(x0, y0), sweep_dir, width)
+                (polygon, exit_dict) = construct_intersection(base_line,
+                                                              base_dir,
+                                                              exits,
+                                                              exit_width)
+                region = Region(Region.PASSAGE, polygon)
+                conn = Connection(Connection.OPEN, base_line, region,
+                                  base_dir.rotate(180))
+                for (exit_dir, exit_line) in exit_dict.items():
+                    if aagen.geometry.grid_aligned(exit_line, exit_dir):
+                        conn_type = Connection.ARCH
+                    else:
+                        conn_type = Connection.SECRET
+                    conn = Connection(conn_type, exit_line, region,
+                                      exit_dir)
+                dungeon_map.add_region(region)
+
+
+def main():
+    logging.basicConfig()
+
+    args = parser.parse_args()
+
+    log_level = {0: logging.ERROR,
+                 1: logging.WARNING,
+                 2: logging.INFO,
+                 3: logging.DEBUG}
+
+    log.setLevel(log_level.get(args.verbose, logging.DEBUG))
+
+    log.info("Running!")
+
+    pygame.init()
+    clock = pygame.time.Clock()
+
+    dungeon_map = DungeonMap()
+    dungeon_display = DungeonDisplay(dungeon_map)
+
+    # Construct demo intersections
+    generate_intersections(dungeon_map, 10, 10)
+    dungeon_map.flush()
+
+    dungeon_display.draw(verbosity=args.verbose)
+
+    done = False
+
+    while not done:
+        clock.tick(10)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                done = True
+            elif event.type == pygame.KEYDOWN:
+                done = True
+            elif event.type == pygame.VIDEORESIZE:
+                dungeon_display.resize_display((event.w, event.h))
+                dungeon_display.draw(verbosity=args.verbose)
+            elif event.type == pygame.MOUSEBUTTONUP:
+                (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
+                object = dungeon_map.object_at((click_x, click_y))
+                print(object)
+
+    log.info("Done!")
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()
