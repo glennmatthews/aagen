@@ -682,11 +682,14 @@ def find_edge_segments(poly, width, direction):
             def prefer(option_a, option_b):
                 return (option_a.bounds[2] > option_b.bounds[2])
     elif direction == Direction.NW or direction == Direction.SE:
-        line1 = point_sweep(point(xmin, ymax), Direction.NE, 200)
-        line2 = point_sweep(point(xmax, ymin), Direction.NE, 200)
-        line3 = point_sweep(point(xmax, ymax), Direction.NW, 200)
-        line4 = point_sweep(point(xmax, ymax), Direction.SE, 200)
-        # TODO grid constraint
+        line1 = point_sweep(point(math.floor(xmin/10) * 10,
+                                  math.ceil(ymax/10) * 10), Direction.NE, 200)
+        line2 = point_sweep(point(math.ceil(xmax/10) *10,
+                                  math.floor(ymin/10) * 10), Direction.NE, 200)
+        line3 = point_sweep(point(math.ceil(xmax/10) * 10,
+                                  math.ceil(ymax/10) * 10), Direction.NW, 200)
+        line4 = point_sweep(point(math.ceil(xmax/10) * 10,
+                                  math.ceil(ymax/10) * 10), Direction.SE, 200)
         point1 = intersect(line1, line3)
         point2 = intersect(line2, line4)
         assert isinstance(point1, Point) and isinstance(point2, Point)
@@ -709,11 +712,14 @@ def find_edge_segments(poly, width, direction):
             def prefer(option_a, option_b):
                 return (option_a.bounds[3] < option_b.bounds[3])
     elif direction == Direction.NE or direction == Direction.SW:
-        line1 = point_sweep(point(xmin, ymin), Direction.NW, 200)
-        line2 = point_sweep(point(xmax, ymax), Direction.NW, 200)
-        line3 = point_sweep(point(xmin, ymax), Direction.SW, 200)
-        line4 = point_sweep(point(xmin, ymax), Direction.NE, 200)
-        # TODO grid constraint
+        line1 = point_sweep(point(math.floor(xmin/10) * 10,
+                                  math.floor(ymin/10) * 10), Direction.NW, 200)
+        line2 = point_sweep(point(math.ceil(xmax/10) * 10,
+                                  math.ceil(ymax/10) * 10), Direction.NW, 200)
+        line3 = point_sweep(point(math.floor(xmin/10) * 10,
+                                  math.ceil(ymax/10) * 10), Direction.SW, 200)
+        line4 = point_sweep(point(math.floor(xmin/10) * 10,
+                                  math.ceil(ymax/10) * 10), Direction.NE, 200)
         point1 = intersect(line1, line3)
         point2 = intersect(line2, line4)
         assert isinstance(point1, Point) and isinstance(point2, Point)
@@ -739,12 +745,21 @@ def find_edge_segments(poly, width, direction):
     print("box: {0}, offset: {1}".format(to_string(inter_box), offset))
     candidates = []
 
+    first_hit = False
+
     while True:
         intersection = intersect(inter_box, border)
         log.debug("intersection: {0}".format(to_string(intersection)))
         if intersection.length == 0:
-            break
+            if not first_hit:
+                # We're not there yet - just move closer
+                inter_box = translate(inter_box, offset, 10)
+                continue
+            else:
+                # We've crossed the shape and exited the other side
+                break
         best = None
+        first_hit = True
         if not hasattr(intersection, "geoms"):
             intersection = [intersection]
 

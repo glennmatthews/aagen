@@ -766,9 +766,8 @@ class Connection(MapElement):
 
     def size(self):
         """Return the size ("width") of this connection"""
-        # This is a hack, but good enough for now
-        return max(self.line.bounds[2] - self.line.bounds[0],
-                   self.line.bounds[3] - self.line.bounds[1])
+        return ((self.line.bounds[2] - self.line.bounds[0]) +
+                (self.line.bounds[3] - self.line.bounds[1]))
 
 
     def get_line_coords(self):
