@@ -6,7 +6,7 @@ aagen
 Installation
 ------------
 
-This program requires Python 2.7 and the pygame and shapely libraries.
+This program requires Python 2.7 and the `pygame` and `shapely` libraries.
 
 On a Mac using MacPorts you can install these as follows:
 
