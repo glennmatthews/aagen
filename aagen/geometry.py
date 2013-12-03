@@ -573,9 +573,13 @@ def loft(*args):
     return shapely.ops.cascaded_union(poly_set)
 
 
-def loft_to_grid(base_line, dir):
+def loft_to_grid(base_line, dir, width):
     """Construct the resulting shape needed to connect the given line to
     the appropriate grid points in the given direction.
+
+    Returns the tuple (aligned_line, lofted_polygon).
+    In some cases there may be more than one plausible way to do this lofting;
+    if so, the one chosen will be the lofted_polygon with the least area.
     """
     assert isinstance(dir, Direction)
     base_line = line(base_line)
@@ -587,6 +591,54 @@ def loft_to_grid(base_line, dir):
         divisor = 10
     else:
         divisor = 5
+
+    (p1, p2) = endpoints_by_direction(base_line, dir.rotate(90))
+
+    if dir.vector[0] < 0:
+        x1 = math.floor(p1.x / divisor) * divisor
+        x2 = math.floor(p2.x / divisor) * divisor
+    elif dir.vector[0] > 0:
+        x1 = math.ceil(p1.x / divisor) * divisor
+        x2 = math.ceil(p2.x / divisor) * divisor
+    else:
+        x1 = round(p1.x / divisor) * divisor
+        x2 = round(p2.x / divisor) * divisor
+    if dir.vector[1] < 0:
+        y1 = math.floor(p1.y / divisor) * divisor
+        y2 = math.floor(p2.y / divisor) * divisor
+    elif dir.vector[1] > 0:
+        y1 = math.ceil(p1.y / divisor) * divisor
+        y2 = math.ceil(p2.y / divisor) * divisor
+    else:
+        y1 = round(p1.y / divisor) * divisor
+        y2 = round(p2.y / divisor) * divisor
+    p1 = point(x1, y1)
+    p2 = point(x2, y2)
+
+    candidate_1 = point_sweep(p1, dir.rotate(-90), width)
+    candidate_2 = point_sweep(p2, dir.rotate(90), width)
+    # TODO - intermediate possibilities?
+    while sweep(candidate_1, dir, 50)[0].crosses(base_line):
+        candidate_1 = translate(candidate_1, dir, 10)
+    while sweep(candidate_2, dir, 50)[0].crosses(base_line):
+        candidate_2 = translate(candidate_2, dir, 10)
+    poly1 = loft(base_line, candidate_1)
+    poly2 = loft(base_line, candidate_2)
+
+    print("First candidate: {0}, {1}".format(to_string(candidate_1), poly1.area))
+    print("Second candidate: {0}, {1}".format(to_string(candidate_2), poly2.area))
+
+    if (poly1.area < poly2.area or (poly1.area == poly2.area and
+                                    poly1.length < poly2.length)):
+        candidate_line = candidate_1
+        poly = poly1
+    else:
+        candidate_line = candidate_2
+        poly = poly2
+
+    print("New line is {0}".format(to_string(candidate_line)))
+    return (candidate_line, poly)
+
 
     # Default guesses:
     x1 = round(p1.x / divisor) * divisor
@@ -626,6 +678,11 @@ def loft_to_grid(base_line, dir):
     candidate_line = line([(x1, y1), (x2, y2)])
     while candidate_line.crosses(base_line):
         candidate_line = translate(candidate_line, dir, 10)
+
+    # Sanity check
+    if not grid_aligned(candidate_line, dir):
+        raise RuntimeError("Final line {0} is not grid-aligned to the {1}"
+                           .format(to_string(candidate_line), dir.name))
     print("New line is {0}".format(to_string(candidate_line)))
     return (candidate_line, loft(base_line, candidate_line))
 
