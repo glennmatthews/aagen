@@ -584,8 +584,8 @@ def loft_to_grid(base_line, dir, width):
     assert isinstance(dir, Direction)
     base_line = line(base_line)
 
-    print("Lofting {0} to the {1} to align to the grid"
-          .format(to_string(base_line), dir))
+    log.info("Lofting {0} to the {1} to align to the grid"
+             .format(to_string(base_line), dir))
     (p1, p2) = base_line.boundary
     if dir.is_cardinal():
         divisor = 10
@@ -625,8 +625,10 @@ def loft_to_grid(base_line, dir, width):
     poly1 = loft(base_line, candidate_1)
     poly2 = loft(base_line, candidate_2)
 
-    print("First candidate: {0}, {1}".format(to_string(candidate_1), poly1.area))
-    print("Second candidate: {0}, {1}".format(to_string(candidate_2), poly2.area))
+    log.debug("First candidate: {0}, {1}"
+              .format(to_string(candidate_1), poly1.area))
+    log.debug("Second candidate: {0}, {1}"
+              .format(to_string(candidate_2), poly2.area))
 
     if (poly1.area < poly2.area or (poly1.area == poly2.area and
                                     poly1.length < poly2.length)):
@@ -636,55 +638,8 @@ def loft_to_grid(base_line, dir, width):
         candidate_line = candidate_2
         poly = poly2
 
-    print("New line is {0}".format(to_string(candidate_line)))
+    log.info("New line is {0}".format(to_string(candidate_line)))
     return (candidate_line, poly)
-
-
-    # Default guesses:
-    x1 = round(p1.x / divisor) * divisor
-    x2 = round(p2.x / divisor) * divisor
-    y1 = round(p1.y / divisor) * divisor
-    y2 = round(p2.y / divisor) * divisor
-
-    if dir == Direction.W:
-        x1 = x2 = math.floor(min(p1.x, p2.x) / divisor) * divisor
-    elif dir == Direction.E:
-        x1 = x2 = math.ceil(max(p1.x, p2.x) / divisor) * divisor
-    elif dir == Direction.S:
-        y1 = y2 = math.floor(min(p1.y, p2.y) / divisor) * divisor
-    elif dir == Direction.N:
-        y1 = y2 = math.ceil(max(p1.y, p2.y) / divisor) * divisor
-    elif dir == Direction.NW:
-        x1 = math.floor(min(p1.x, p2.x) / divisor) * divisor
-        x2 = math.floor(max(p1.x, p2.x) / divisor) * divisor
-        y1 = math.ceil(min(p1.y, p2.y) / divisor) * divisor
-        y2 = math.ceil(max(p1.y, p2.y) / divisor) * divisor
-    elif dir == Direction.NE:
-        x1 = math.ceil(min(p1.x, p2.x) / divisor) * divisor
-        x2 = math.ceil(max(p1.x, p2.x) / divisor) * divisor
-        y1 = math.ceil(max(p1.y, p2.y) / divisor) * divisor
-        y2 = math.ceil(min(p1.y, p2.y) / divisor) * divisor
-    elif dir == Direction.SW:
-        x1 = math.floor(min(p1.x, p2.x) / divisor) * divisor
-        x2 = math.floor(max(p1.x, p2.x) / divisor) * divisor
-        y1 = math.floor(max(p1.y, p2.y) / divisor) * divisor
-        y2 = math.floor(min(p1.y, p2.y) / divisor) * divisor
-    elif dir == Direction.SE:
-        x1 = math.ceil(min(p1.x, p2.x) / divisor) * divisor
-        x2 = math.ceil(max(p1.x, p2.x) / divisor) * divisor
-        y1 = math.floor(min(p1.y, p2.y) / divisor) * divisor
-        y2 = math.floor(max(p1.y, p2.y) / divisor) * divisor
-
-    candidate_line = line([(x1, y1), (x2, y2)])
-    while candidate_line.crosses(base_line):
-        candidate_line = translate(candidate_line, dir, 10)
-
-    # Sanity check
-    if not grid_aligned(candidate_line, dir):
-        raise RuntimeError("Final line {0} is not grid-aligned to the {1}"
-                           .format(to_string(candidate_line), dir.name))
-    print("New line is {0}".format(to_string(candidate_line)))
-    return (candidate_line, loft(base_line, candidate_line))
 
 
 def find_edge_segments(poly, width, direction):
@@ -799,7 +754,7 @@ def find_edge_segments(poly, width, direction):
             def prefer(option_a, option_b):
                 return (option_a.bounds[3] < option_b.bounds[3])
 
-    print("box: {0}, offset: {1}".format(to_string(inter_box), offset))
+    log.debug("box: {0}, offset: {1}".format(to_string(inter_box), offset))
     candidates = []
 
     first_hit = False
@@ -835,7 +790,7 @@ def find_edge_segments(poly, width, direction):
         if best is None:
             continue
 
-        print("Found section: {0}".format(to_string(best)))
+        log.debug("Found section: {0}".format(to_string(best)))
         candidates.append(best)
 
     log.info("Found {0} candidate edges: {1}"
@@ -876,8 +831,9 @@ def trim(shape, trimmer, adjacent_shape):
         if difference.intersects(adjacent_shape):
             match = difference
         else:
-            print("{0} does not intersect {1}"
-                  .format(to_string(difference), to_string(adjacent_shape)))
+            log.warning("{0} does not intersect {1}"
+                        .format(to_string(difference),
+                                to_string(adjacent_shape)))
 
     if match is not None:
         log.debug("Trimmed shape to fit")

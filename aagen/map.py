@@ -336,7 +336,7 @@ class DungeonMap:
             else:
                 (segment, conn_poly) = aagen.geometry.loft_to_grid(
                     segment, direction, width)
-                print("conn_poly: {0}".format(to_string(conn_poly)))
+                log.debug("conn_poly: {0}".format(to_string(conn_poly)))
 
             # Make sure it doesn't intersect any existing conns
             for conn in region.connections:
@@ -402,7 +402,7 @@ class DungeonMap:
                 else:
                     (edge_line, edge_poly) = aagen.geometry.loft_to_grid(
                         edge, direction.rotate(180), width)
-                    print("edge_poly: {0}".format(to_string(edge_poly)))
+                    log.debug("edge_poly: {0}".format(to_string(edge_poly)))
 
                 dx = connection.line.bounds[0] - edge_line.bounds[0]
                 dy = connection.line.bounds[1] - edge_line.bounds[1]
