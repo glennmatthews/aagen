@@ -618,9 +618,11 @@ def loft_to_grid(base_line, dir, width):
     candidate_1 = point_sweep(p1, dir.rotate(-90), width)
     candidate_2 = point_sweep(p2, dir.rotate(90), width)
     # TODO - intermediate possibilities?
-    while sweep(candidate_1, dir, 50)[0].crosses(base_line):
+    while (sweep(candidate_1, dir, 50)[0].crosses(base_line) or
+           sweep(candidate_1, dir, 50)[0].contains(base_line)):
         candidate_1 = translate(candidate_1, dir, 10)
-    while sweep(candidate_2, dir, 50)[0].crosses(base_line):
+    while (sweep(candidate_2, dir, 50)[0].crosses(base_line) or
+           sweep(candidate_2, dir, 50)[0].contains(base_line)):
         candidate_2 = translate(candidate_2, dir, 10)
     poly1 = loft(base_line, candidate_1)
     poly2 = loft(base_line, candidate_2)
@@ -671,10 +673,10 @@ def find_edge_segments(poly, width, direction):
             return (math.fabs(w - size) < 0.1 and h <= size)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
-                return (option_a.bounds[1] > option_b.bounds[1])
+                return (option_a.bounds[3] > option_b.bounds[3])
         else: # south
             def prefer(option_a, option_b):
-                return (option_a.bounds[3] < option_b.bounds[3])
+                return (option_a.bounds[1] < option_b.bounds[1])
     elif direction == Direction.W or direction == Direction.E:
         inter_box = box(xmin, math.floor(ymin/10)*10,
                         xmax, math.floor(ymin/10)*10 + width)
