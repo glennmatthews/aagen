@@ -771,21 +771,21 @@ class DungeonGenerator:
 
         if roll <= 16:
             self.print_roll(roll, "The passage goes straight {0}"
-                            .format(base_direction))
+                            .format(base_direction.name))
             return [base_direction]
         elif roll <= 18:
             left = base_direction.rotate(45)
             right = base_direction.rotate(-45)
-            self.print_roll(roll, "The passage goes 45 degrees left {0}, or "
-                            "if that doesn't work, 45 degrees right {1}"
-                            .format(left, right))
+            self.print_roll(roll, "The passage goes 45 degrees left ({0}), or "
+                            "if that doesn't work, 45 degrees right ({1})"
+                            .format(left.name, right.name))
             return [left, right]
         else:
             left = base_direction.rotate(45)
             right = base_direction.rotate(-45)
-            self.print_roll(roll, "The passage goes 45 degrees right {0}, or "
-                            "if that doesn't work, 45 degrees left {1}"
-                            .format(right, left))
+            self.print_roll(roll, "The passage goes 45 degrees right ({0}), or "
+                            "if that doesn't work, 45 degrees left ({1})"
+                            .format(right.name, left.name))
             return [right, left]
 
 
