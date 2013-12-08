@@ -58,10 +58,16 @@ def generate_intersections(dungeon_map, width, exit_width):
                          .format(base_dir, width, exits, exit_width))
                 base_line = aagen.geometry.point_sweep(
                     aagen.geometry.point(x0, y0), sweep_dir, width)
-                (polygon, exit_dict) = construct_intersection(base_line,
-                                                              base_dir,
-                                                              exits,
-                                                              exit_width)
+                try:
+                    (polygon, exit_dict) = construct_intersection(base_line,
+                                                                  base_dir,
+                                                                  exits,
+                                                                  exit_width)
+                except Exception as e:
+                    print (e)
+                    traceback.print_exc()
+                    continue
+
                 region = Region(Region.PASSAGE, polygon)
                 conn = Connection(Connection.OPEN, base_line, region,
                                   base_dir.rotate(180))
