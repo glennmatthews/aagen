@@ -36,7 +36,11 @@ def generate_intersections(dungeon_map, width, exit_width):
     x0 = 0
     y0 = 0
     for base_dir in [Direction.N, Direction.NE]:
-        for sweep_dir in (base_dir.rotate(90), base_dir.rotate(-90)):
+        if base_dir.is_cardinal() or (width % 20 == 0):
+            sweep_list = [base_dir.rotate(90)]
+        else:
+            sweep_list = [base_dir.rotate(90), base_dir.rotate(-90)]
+        for sweep_dir in sweep_list:
             x0 = 0
             y0 -= 50
             for exits in [[base_dir.rotate(135)],
@@ -92,12 +96,18 @@ def main():
     dungeon_display = DungeonDisplay(dungeon_map)
 
     # Construct demo intersections
-    generate_intersections(dungeon_map, 10, 10)
+    base_width = 10
+    exit_width = 10
+    generate_intersections(dungeon_map, base_width, exit_width)
     dungeon_map.flush()
 
     dungeon_display.draw(verbosity=args.verbose)
 
     done = False
+    dirty = False
+
+    print("Press ']' or '[' to increment/decrement the entrance width.")
+    print("Press '=' or '-' to increment/decrement the exit width.")
 
     while not done:
         clock.tick(10)
@@ -108,6 +118,18 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     done = True
+                elif event.key == pygame.K_RIGHTBRACKET and base_width < 50:
+                    base_width += 10
+                    dirty = True
+                elif event.key == pygame.K_LEFTBRACKET and base_width > 10:
+                    base_width -= 10
+                    dirty = True
+                elif event.key == pygame.K_EQUALS and exit_width < 50:
+                    exit_width += 10
+                    dirty = True
+                elif event.key == pygame.K_MINUS and exit_width > 10:
+                    exit_width -= 10
+                    dirty = True
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
                 dungeon_display.draw(verbosity=args.verbose)
@@ -115,6 +137,12 @@ def main():
                 (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
                 object = dungeon_map.object_at((click_x, click_y))
                 print(object)
+
+        if dirty:
+            generate_intersections(dungeon_map, base_width, exit_width)
+            dungeon_map.flush()
+            dungeon_display.draw(verbosity=args.verbose)
+            dirty = False
 
     log.info("Done!")
 
