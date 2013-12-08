@@ -41,23 +41,46 @@ def generate_intersections(dungeon_map, width, exit_width):
         else:
             sweep_list = [base_dir.rotate(90), base_dir.rotate(-90)]
         for sweep_dir in sweep_list:
-            x0 = 0
-            y0 -= 50
             for exits in [[base_dir.rotate(135)],
                           [base_dir.rotate(90)],
                           [base_dir.rotate(45)],
                           [base_dir.rotate(135), base_dir],
                           [base_dir.rotate(90), base_dir],
                           [base_dir.rotate(45), base_dir],
+                          [base_dir.rotate(135), base_dir.rotate(-45)],
+                          [base_dir.rotate(90), base_dir.rotate(-45)],
+                          [base_dir.rotate(45), base_dir.rotate(-45)],
                           [base_dir.rotate(135), base_dir.rotate(-135)],
-                          [base_dir.rotate(135), base_dir.rotate(-90)],
-                          [base_dir.rotate(135), base_dir.rotate(-45)]]:
-                x0 += 50
+                          [base_dir.rotate(90), base_dir.rotate(-135)],
+                          #[base_dir.rotate(45), base_dir.rotate(-135)],
+                          #[base_dir.rotate(135), base_dir.rotate(-90)],
+                          [base_dir.rotate(90), base_dir.rotate(-90)],
+                          #[base_dir.rotate(45), base_dir.rotate(-90)],
+                          [base_dir.rotate(135), base_dir.rotate(45),
+                           base_dir.rotate(-135), base_dir.rotate(-45)],
+                          [base_dir.rotate(135), base_dir.rotate(45),
+                           base_dir.rotate(-135), base_dir.rotate(-45),
+                           base_dir],
+                          [base_dir.rotate(45), base_dir.rotate(-45), base_dir],
+            ]:
+                if (exits == [base_dir.rotate(135)] or
+                    exits == [base_dir.rotate(135), base_dir.rotate(-135)]):
+                    x0 = 0
+                    y0 -= 50 + width + exit_width
+                else:
+                    x0 += 50 + width + exit_width
+
                 base_point = (x0, y0)
                 log.info("Intersection from {0} (w {1}) to {2} (w {3})"
                          .format(base_dir, width, exits, exit_width))
                 base_line = aagen.geometry.point_sweep(
                     aagen.geometry.point(x0, y0), sweep_dir, width)
+                base_conn = Connection(Connection.ONEWAY, base_line, None,
+                                       base_dir)
+                (entry, base_line) = aagen.geometry.sweep(base_line,
+                                                          base_dir, 20)
+                temp_region = Region(Region.PASSAGE, entry)
+                base_conn.add_region(temp_region)
                 try:
                     (polygon, exit_dict) = construct_intersection(base_line,
                                                                   base_dir,
@@ -68,9 +91,9 @@ def generate_intersections(dungeon_map, width, exit_width):
                     traceback.print_exc()
                     continue
 
-                region = Region(Region.PASSAGE, polygon)
-                conn = Connection(Connection.OPEN, base_line, region,
-                                  base_dir.rotate(180))
+                region = Region(Region.CHAMBER, polygon)
+                conn = Connection(Connection.ONEWAY, base_line,
+                                  [region, temp_region], base_dir)
                 for (exit_dir, exit_line) in exit_dict.items():
                     if aagen.geometry.grid_aligned(exit_line, exit_dir):
                         conn_type = Connection.ARCH
@@ -78,6 +101,12 @@ def generate_intersections(dungeon_map, width, exit_width):
                         conn_type = Connection.SECRET
                     conn = Connection(conn_type, exit_line, region,
                                       exit_dir)
+                    (extension, endwall) = aagen.geometry.sweep(exit_line,
+                                                                exit_dir, 20)
+                    temp_region = Region(Region.PASSAGE, extension)
+                    conn.add_region(temp_region)
+                    temp_conn = Connection(Connection.OPEN, endwall,
+                                           temp_region, exit_dir)
                 dungeon_map.add_region(region)
 
 
