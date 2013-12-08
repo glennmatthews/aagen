@@ -258,8 +258,10 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
                 new_poly = polygon([other_point, shared_point, new_exit_point,
                                     newer_exit_point1, newer_exit_point2,
                                     inter_point, other_point])
-        elif base_dir in exit_dir_list or (dir_45_same in exit_dir_list and not
-                                           dir_135_opp in exit_dir_list):
+        elif ((base_dir in exit_dir_list) or
+              (dir_45_same in exit_dir_list and
+               not dir_135_opp in exit_dir_list) or
+              (dir_90_opp in exit_dir_list and base_dir.is_cardinal())):
             newer_exit_point1 = translate(new_exit_point, dir_45_opp,
                                           exit_width)
             newer_exit_point2 = translate(newer_exit_point1, dir_90_opp,
