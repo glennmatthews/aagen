@@ -61,6 +61,8 @@ class DungeonGenerator:
             print("Using existing map.")
             return
 
+        self.step_number = 0
+
         print("Generating new dungeon!")
         log.info("Adding initial entrance stairs")
         stairs_coords = [(0, 0), (0, -20), (10, -20), (10, 0)]
@@ -395,7 +397,7 @@ class DungeonGenerator:
         if len(candidate_connections) == 0:
             raise RuntimeError("No candidate connections were found!")
 
-        print("Choosing the best placement for a connections...")
+        log.info("Choosing the best placement for a connection...")
 
         # Sort by least additional area added to the region
         # (only really an issue when connecting to an unusually-shaped room!)
@@ -412,7 +414,7 @@ class DungeonGenerator:
         if len(candidate_regions) == 0:
             raise RuntimeError("No candidate regions were found!")
 
-        print("Choosing the best placement for a region...")
+        log.info("Choosing the best placement for a region...")
 
         # Simulating human judgement... consider the following:
 
@@ -891,7 +893,9 @@ class DungeonGenerator:
         """Run another step of the dungeon generation algorithm, either
         starting from the specified connection or a random one"""
 
-        print("\n\n\n----------Step----------")
+        self.step_number += 1
+
+        print("\n\n\n----------Step {0}----------".format(self.step_number))
         self.dungeon_map.flush()
         log.info(self.dungeon_map)
         if connection is None:
