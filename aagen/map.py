@@ -727,13 +727,16 @@ class Connection(MapElement):
                                                   self.direction.rotate(180),
                                                   1.5)
             door_ring = aagen.geometry.line_loop(door_poly.exterior.coords)
-            arrow_point = aagen.geometry.translate(mid, self.direction, 3)
+            arrow_len = 4 if self.direction.is_cardinal() else 6
+            arrowhead_len = 3 if self.direction.is_cardinal() else 2
+            arrow_point = aagen.geometry.translate(mid, self.direction,
+                                                   arrow_len)
             arrow_line1 = aagen.geometry.point_sweep(arrow_point,
-                                                     self.direction.rotate(-45),
-                                                     -2)
+                                                     self.direction.rotate(135),
+                                                     arrowhead_len)
             arrow_line2 = aagen.geometry.point_sweep(arrow_point,
-                                                     self.direction.rotate(45),
-                                                     -2)
+                                                     self.direction.rotate(225),
+                                                     arrowhead_len)
             self.draw_lines = [self.line, door_ring,
                                aagen.geometry.line([mid, arrow_point]),
                                arrow_line1, arrow_line2]
