@@ -57,19 +57,20 @@ class DungeonDisplay:
         map_h = (y1 - y0)
         xscale = display_w / map_w
         yscale = display_h / map_h
-        self.display_scale = min(xscale, yscale)
+        # self.display_scale is the number of pixels per foot.
+        self.display_scale = math.floor(min(xscale, yscale))
+        if self.display_scale < 1:
+            self.display_scale = 1
         log.debug("Display scale ({0}, {1}) -> {2}"
                   .format(xscale, yscale, self.display_scale))
 
         # Center the dungeon in the display as needed
-        if xscale < yscale:
-            delta = (display_h / self.display_scale) - map_h
-            y0 -= delta / 2
-            y1 += delta / 2
-        elif yscale < xscale:
-            delta = (display_w / self.display_scale) - map_w
-            x0 -= delta / 2
-            x1 += delta / 2
+        delta = (display_h / self.display_scale) - map_h
+        y0 -= math.floor(delta / 2)
+        y1 += math.ceil(delta / 2)
+        delta = (display_w / self.display_scale) - map_w
+        x0 -= math.floor(delta / 2)
+        x1 += math.ceil(delta / 2)
 
         self.bounds = (x0, y0, x1, y1)
 
