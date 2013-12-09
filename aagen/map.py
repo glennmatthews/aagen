@@ -339,13 +339,20 @@ class DungeonMap:
                 log.debug("segment: {0}, conn_poly: {1}"
                           .format(to_string(segment), to_string(conn_poly)))
 
-            # Make sure it doesn't intersect any existing conns
-            for conn in region.connections:
-                if aagen.geometry.intersect(conn.line, segment).length > 0:
-                    log.debug("Conflicts with existing conn {0}"
-                              .format(conn))
-                    valid = False
-                    break
+            # Make sure the extension doesn't overflow into existing space,
+            # as can happen when there is a diagonal passage nearby:
+            if aagen.geometry.intersect(conn_poly,
+                                        self.conglomerate_polygon).area > 0:
+                valid = False
+
+            if valid:
+                # Make sure it doesn't intersect any existing conns
+                for conn in region.connections:
+                    if aagen.geometry.intersect(conn.line, segment).length > 0:
+                        log.debug("Conflicts with existing conn {0}"
+                                  .format(conn))
+                        valid = False
+                        break
             if valid and new_only:
                 # Make sure it doesn't intersect any other regions
                 for test_region in self.regions:
