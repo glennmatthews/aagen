@@ -306,13 +306,22 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
         if base_dir in exit_dir_list:
             # Same polygon as above in exit_135:
             new_exit_point1 = translate(shared_point, exit_45, exit_width)
+            new_shared_point = shared_point
             new_exit_point2 = translate(new_exit_point1, dir_45_opp, exit_width)
+            if not grid_aligned(line([new_exit_point1, new_exit_point2]),
+                                exit_45):
+                new_shared_point = translate(shared_point, base_dir, 10)
+                new_exit_point1 = translate(new_exit_point1, base_dir, 10)
+                new_exit_point2 = translate(new_exit_point2, base_dir, 10)
+                assert grid_aligned(line([new_exit_point1, new_exit_point2]),
+                                    exit_45)
             new_exit_point3 = translate(new_exit_point2, dir_90_opp, base_width)
             new_exits[exit_45] = line([new_exit_point1, new_exit_point2])
             if not base_dir in new_exits.keys():
                 new_exits[base_dir] = line([new_exit_point2, new_exit_point3])
-            new_poly = polygon([other_point, shared_point, new_exit_point1,
-                                new_exit_point2, new_exit_point3])
+            new_poly = polygon([other_point, shared_point, new_shared_point,
+                                new_exit_point1, new_exit_point2,
+                                new_exit_point3])
         else:
             # Construct an initial point and some guiding lines
             new_exit_point = translate(shared_point, dir_45_opp, exit_width)
