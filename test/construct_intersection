@@ -62,6 +62,7 @@ def generate_intersections(dungeon_map, width, exit_width):
                            base_dir.rotate(-135), base_dir.rotate(-45),
                            base_dir],
                           [base_dir.rotate(45), base_dir.rotate(-45), base_dir],
+                          [base_dir.rotate(135), base_dir.rotate(-45), base_dir],
             ]:
                 if (exits == [base_dir.rotate(135)] or
                     exits == [base_dir.rotate(135), base_dir.rotate(-135)]):

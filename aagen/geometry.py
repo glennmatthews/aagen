@@ -201,6 +201,11 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
     new_polygon = base_line
     new_exits = {}
 
+    if exit_fwd:
+        (new_polygon, new_exits[exit_fwd]) = sweep(base_line, base_dir,
+                                                   exit_width)
+        exit_fwd = None
+
     # Do each in turn, if present
     for exit_135 in exits_135:
         # Calculate some related angles:
@@ -223,41 +228,26 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
 
         # Construct the exit line
         new_exit_point = translate(shared_point, dir_45_same, exit_width)
+        new_shared_point = shared_point
         new_exits[exit_135] = line([shared_point, new_exit_point])
+        if not grid_aligned(new_exits[exit_135], exit_135):
+            new_shared_point = translate(shared_point, base_dir, 10)
+            new_exit_point = translate(new_exit_point, base_dir, 10)
+            new_exits[exit_135] = translate(new_exits[exit_135], base_dir, 10)
+            assert grid_aligned(new_exits[exit_135], exit_135)
 
         base_ext_line = point_sweep(other_point, base_dir, 100)
 
         # If this passage has an opposing exit, construct it too
         if dir_45_opp in exits_45:
             exits_45.remove(dir_45_opp)
+            # Will be swept forward later...
+            new_exits[dir_45_opp] = new_exits[exit_135]
 
-            # Locate the new exit points
-            shared_ext_line = point_sweep(shared_point, dir_45_opp, 100)
             exit_ext_line = point_sweep(new_exit_point, dir_45_opp, 100)
             newer_exit_point1 = intersect(base_ext_line, exit_ext_line)
-            inter_point = intersect(base_ext_line, shared_ext_line)
-            newer_exit_point2 = translate(newer_exit_point1, dir_135_opp,
-                                          exit_width)
-            new_exits[dir_45_opp] = line([newer_exit_point1, newer_exit_point2])
-
-            if base_dir in exit_dir_list:
-                # Extend forward as well!
-                newest_exit_point = translate(newer_exit_point1, dir_90_same,
-                                              base_width)
-                new_exits[base_dir] = line([newer_exit_point1,
-                                            newest_exit_point])
-                new_inter_point = intersect(exit_ext_line,
-                                            line([shared_point,
-                                                  newest_exit_point]))
-                new_poly = polygon([other_point, shared_point, new_exit_point,
-                                    new_inter_point, newest_exit_point,
-                                    newer_exit_point1, newer_exit_point2,
-                                    inter_point, other_point])
-            else:
-                # No passage continuation
-                new_poly = polygon([other_point, shared_point, new_exit_point,
-                                    newer_exit_point1, newer_exit_point2,
-                                    inter_point, other_point])
+            new_poly = polygon([other_point, shared_point, new_shared_point,
+                                new_exit_point, newer_exit_point1, other_point])
         elif ((base_dir in exit_dir_list) or
               (dir_45_same in exit_dir_list and
                not dir_135_opp in exit_dir_list) or
@@ -275,16 +265,16 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
             if base_dir in exit_dir_list and not base_dir in new_exits.keys():
                 new_exits[base_dir] = line([newer_exit_point1,
                                             newer_exit_point2])
-            new_poly = polygon([other_point, shared_point, new_exit_point,
-                                newer_exit_point1, newer_exit_point2,
-                                other_point])
+            new_poly = polygon([other_point, shared_point, new_shared_point,
+                                new_exit_point, newer_exit_point1,
+                                newer_exit_point2, other_point])
         else:
             # No other exits on this side
             # Construct the corner of the polygon
             corner_ext_line = point_sweep(new_exit_point, dir_90_opp, 100)
             corner_point = intersect(base_ext_line, corner_ext_line)
-            new_poly = polygon([other_point, shared_point, new_exit_point,
-                                corner_point, other_point])
+            new_poly = polygon([other_point, shared_point, new_shared_point,
+                                new_exit_point, corner_point, other_point])
 
         log.debug("new_poly: {0}".format(to_string(new_poly)))
         new_polygon = union(new_polygon, new_poly)
