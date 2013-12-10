@@ -699,16 +699,23 @@ def find_edge_segments(poly, width, direction):
                 return (option_a.bounds[2] > option_b.bounds[2])
     elif direction == Direction.NW or direction == Direction.SE:
         line1 = point_sweep(point(math.floor(xmin/10) * 10,
-                                  math.ceil(ymax/10) * 10), Direction.NE, 200)
+                                  math.ceil(ymax/10) * 10), Direction.NE, 2000)
         line2 = point_sweep(point(math.ceil(xmax/10) *10,
-                                  math.floor(ymin/10) * 10), Direction.NE, 200)
+                                  math.floor(ymin/10) * 10), Direction.NE, 2000)
         line3 = point_sweep(point(math.ceil(xmax/10) * 10,
-                                  math.ceil(ymax/10) * 10), Direction.NW, 200)
+                                  math.ceil(ymax/10) * 10), Direction.NW, 2000)
         line4 = point_sweep(point(math.ceil(xmax/10) * 10,
-                                  math.ceil(ymax/10) * 10), Direction.SE, 200)
+                                  math.ceil(ymax/10) * 10), Direction.SE, 2000)
         point1 = intersect(line1, line3)
+        if not isinstance(point1, Point):
+            raise RuntimeError("Intersection of {0} and {1} is {2}, not a Point"
+                               .format(to_string(line1), to_string(line3),
+                                       point1))
         point2 = intersect(line2, line4)
-        assert isinstance(point1, Point) and isinstance(point2, Point)
+        if not isinstance(point2, Point):
+            raise RuntimeError("Intersection of {0} and {1} is {2}, not a Point"
+                               .format(to_string(line2), to_string(line4),
+                                       point2))
         point3 = translate(point2, Direction.SW, width)
         point4 = translate(point1, Direction.SW, width)
         inter_box = polygon([point1, point2, point3, point4])
@@ -729,16 +736,23 @@ def find_edge_segments(poly, width, direction):
                 return (option_a.bounds[3] < option_b.bounds[3])
     elif direction == Direction.NE or direction == Direction.SW:
         line1 = point_sweep(point(math.floor(xmin/10) * 10,
-                                  math.floor(ymin/10) * 10), Direction.NW, 200)
+                                  math.floor(ymin/10) * 10), Direction.NW, 2000)
         line2 = point_sweep(point(math.ceil(xmax/10) * 10,
-                                  math.ceil(ymax/10) * 10), Direction.NW, 200)
+                                  math.ceil(ymax/10) * 10), Direction.NW, 2000)
         line3 = point_sweep(point(math.floor(xmin/10) * 10,
-                                  math.ceil(ymax/10) * 10), Direction.SW, 200)
+                                  math.ceil(ymax/10) * 10), Direction.SW, 2000)
         line4 = point_sweep(point(math.floor(xmin/10) * 10,
-                                  math.ceil(ymax/10) * 10), Direction.NE, 200)
+                                  math.ceil(ymax/10) * 10), Direction.NE, 2000)
         point1 = intersect(line1, line3)
+        if not isinstance(point1, Point):
+            raise RuntimeError("Intersection of {0} and {1} is {2}, not a Point"
+                               .format(to_string(line1), to_string(line3),
+                                       point1))
         point2 = intersect(line2, line4)
-        assert isinstance(point1, Point) and isinstance(point2, Point)
+        if not isinstance(point2, Point):
+            raise RuntimeError("Intersection of {0} and {1} is {2}, not a Point"
+                               .format(to_string(line2), to_string(line4),
+                                       point2))
         point3 = translate(point2, Direction.SE, width)
         point4 = translate(point1, Direction.SE, width)
         inter_box = polygon([point1, point2, point3, point4])
