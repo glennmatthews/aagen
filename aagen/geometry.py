@@ -374,6 +374,17 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
         log.debug("new_poly: {0}".format(to_string(new_poly)))
         new_polygon = union(new_polygon, new_poly)
 
+    # Sanitize things a bit:
+    while True:
+        changed = False
+        for (e_dir, e_line) in new_exits.items():
+            (tmp_poly, new_e_line) = sweep(e_line, e_dir, 10)
+            if intersect(tmp_poly, new_polygon).area > 0:
+                new_exits[e_dir] = new_e_line
+                new_polygon = union(new_polygon, tmp_poly)
+                changed = True
+        if not changed:
+            break
 
     log.info("polygon: {0}".format(to_string(new_polygon)))
     log.info("exits: {0}".format([(e_dir.name, to_string(e_line)) for
