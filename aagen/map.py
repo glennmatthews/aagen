@@ -707,6 +707,16 @@ class Connection(MapElement):
         # TODO if dir == None and len(regions) == 1, make sure that
         # the derived normal direction points AWAY from the Region?
 
+        self.set_kind(kind)
+
+        log.debug("Constructed {0}".format(self))
+        return
+
+
+    def set_kind(self, kind):
+        assert kind in Connection.__kinds
+        self.kind = kind
+
         # Add helper polygons for drawing
         start = self.line.boundary[0]
         mid = self.line.interpolate(self.line.length / 2)
@@ -763,9 +773,6 @@ class Connection(MapElement):
         else:
             raise LookupError("Don't know how to define draw_lines for {0}"
                               .format(kind))
-
-        log.debug("Constructed {0}".format(self))
-        return
 
 
     def __repr__(self):

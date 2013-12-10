@@ -126,7 +126,7 @@ class DungeonGenerator:
             return
         elif roll <= 16:
             self.print_roll(roll, "Passage enters a chamber")
-            connection.kind = Connection.ARCH
+            connection.set_kind(Connection.ARCH)
             self.generate_room(Region.CHAMBER, connection)
             return
         elif roll <= 17:
