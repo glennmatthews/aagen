@@ -17,10 +17,17 @@ class DungeonDisplay:
 
     def __init__(self, dungeon_map, (w, h)=(None, None)):
         assert isinstance(dungeon_map, DungeonMap)
+        # Warning! If you call pygame.display.set_mode() with a (w, h) larger
+        # than the window can actually be constructed (due to menu bars,
+        # window title bars, dock/taskbar, etc.), pygame will create a smaller
+        # window and quietly rescale everything on-the-fly for you.
+        # We don't want that!
+        # So we make our initial window quite a bit smaller than the display
+        # size so that we can reasonably expect it's a valid window.
         if w is None:
-            w = pygame.display.Info().current_w - 100
+            w = pygame.display.Info().current_w - 200
         if h is None:
-            h = pygame.display.Info().current_h - 100
+            h = pygame.display.Info().current_h - 200
         self.surface = pygame.display.set_mode((w, h), pygame.RESIZABLE)
         self.dungeon_map = dungeon_map
         log.debug("Initialized {0}".format(self))
@@ -58,19 +65,21 @@ class DungeonDisplay:
         xscale = display_w / map_w
         yscale = display_h / map_h
         # self.display_scale is the number of pixels per foot.
-        self.display_scale = math.floor(min(xscale, yscale))
+        # We constrain it such that 5' is always a whole number of pixels
+        self.display_scale = math.floor(min(xscale, yscale) * 5) / 5
         if self.display_scale < 1:
             self.display_scale = 1
         log.debug("Display scale ({0}, {1}) -> {2}"
                   .format(xscale, yscale, self.display_scale))
 
         # Center the dungeon in the display as needed
+        # But fudge it a bit to ensure that (x0, y1) is a grid intersection
         delta = (display_h / self.display_scale) - map_h
-        y0 -= math.floor(delta / 2)
-        y1 += math.ceil(delta / 2)
+        y0 = math.floor((y0 - delta/2) / 10) * 10
+        y1 = math.ceil((y1 + delta/2) / 10) * 10
         delta = (display_w / self.display_scale) - map_w
-        x0 -= math.floor(delta / 2)
-        x1 += math.ceil(delta / 2)
+        x0 = math.floor((x0 - delta/2) / 10) * 10
+        x1 = math.ceil((x1 + delta/2) / 10) * 10
 
         self.bounds = (x0, y0, x1, y1)
 
