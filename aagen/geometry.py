@@ -86,11 +86,6 @@ def grid_aligned(line, direction):
         Direction.normal_to(line) != direction.rotate(180)):
         return False
     (p1, p2) = list(line.boundary)
-    # Even in the case of 5-foot-wide passages and diagonal passages, at least
-    # one endpoint must be constrained to the 10' grid to be valid
-    if ((math.fmod(p1.x, 10) != 0 or math.fmod(p1.y, 10) != 0) and
-        (math.fmod(p2.x, 10) != 0 or math.fmod(p2.y, 10) != 0)):
-        return False
     if p1.x == p2.x or p1.y == p2.y:
         # Vertical or horizontal, promising...
         return (math.fmod(p1.x, 10) == 0 and math.fmod(p2.x, 10) == 0 and
@@ -198,198 +193,173 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
             raise RuntimeError("Unexpected angle between {0} and {1}?!"
                                .format(base_dir.name, exit_dir.name))
 
-    new_polygon = base_line
     new_exits = {}
 
     if exit_fwd:
-        (new_polygon, new_exits[exit_fwd]) = sweep(base_line, base_dir,
-                                                   exit_width)
-        exit_fwd = None
+        sweep_dist = exit_width
+        if ((not base_dir.is_cardinal()) and
+            (base_dir.rotate(45) in exit_dir_list or
+             base_dir.rotate(-45) in exit_dir_list or
+             base_dir.rotate(135) in exit_dir_list or
+             base_dir.rotate(-135) in exit_dir_list)):
+            sweep_dist *= 2
+        if ((base_dir.rotate(135) in exit_dir_list and
+             base_dir.rotate(-45) in exit_dir_list) or
+            (base_dir.rotate(-135) in exit_dir_list and
+             base_dir.rotate(45) in exit_dir_list)):
+            sweep_dist += base_width
+        (_, new_exits[exit_fwd]) = sweep(base_line, base_dir, sweep_dist)
+    exit_fwd_adjust = False
 
-    # Do each in turn, if present
-    for exit_135 in exits_135:
-        # Calculate some related angles:
-        dir_45_same = base_dir.rotate(45)
-        if dir_45_same.angle_from(exit_135) == 90:
-            dir_90_same = base_dir.rotate(90)
-            dir_45_opp = base_dir.rotate(-45)
-            dir_90_opp = base_dir.rotate(-90)
-            dir_135_opp = base_dir.rotate(-135)
-        else:
-            dir_45_same = base_dir.rotate(-45)
-            dir_90_same = base_dir.rotate(-90)
-            dir_45_opp = base_dir.rotate(45)
-            dir_90_opp = base_dir.rotate(90)
-            dir_135_opp = base_dir.rotate(135)
+    for s in [1, -1]:
+        exit_135 = base_dir.rotate(135 * s)
+        if not exit_135 in exit_dir_list:
+            continue
+        (shared_point, _) = endpoints_by_direction(base_line, exit_135)
+        exit_line = point_sweep(shared_point, base_dir.rotate(45*s), exit_width)
+        if not grid_aligned(exit_line, exit_135):
+            exit_line = translate(exit_line, base_dir, 10)
+            exit_fwd_adjust = True
+            assert grid_aligned(exit_line, exit_135)
+        new_exits[exit_135] = exit_line
 
-        # Choose point that should be shared between baseline and this exit
-        (shared_point, other_point) = endpoints_by_direction(base_line,
-                                                             exit_135)
+    for s in [1, -1]:
+        exit_90 = base_dir.rotate(90 * s)
+        if not exit_90 in exit_dir_list:
+            continue
+        (shared_point, _) = endpoints_by_direction(base_line, exit_90)
+        exit_line = point_sweep(shared_point, base_dir, exit_width)
+        new_exits[exit_90] = exit_line
 
-        # Construct the exit line
-        new_exit_point = translate(shared_point, dir_45_same, exit_width)
-        new_shared_point = shared_point
-        new_exits[exit_135] = line([shared_point, new_exit_point])
-        if not grid_aligned(new_exits[exit_135], exit_135):
-            new_shared_point = translate(shared_point, base_dir, 10)
-            new_exit_point = translate(new_exit_point, base_dir, 10)
-            new_exits[exit_135] = translate(new_exits[exit_135], base_dir, 10)
-            assert grid_aligned(new_exits[exit_135], exit_135)
+    for s in [1, -1]:
+        exit_45 = base_dir.rotate(45 * s)
+        if not exit_45 in exit_dir_list:
+            continue
+        # 45-degree exits are the trickiest.
+        # We have a number of cases to consider:
+        # 1) 45-degree side passage (main continues)
+        #    Here we must not cross the same base wall
+        # 2) Y-junction (45 degree split in both directions)
+        #    Here we must not cross the base midline
+        # 3) Simple 45-degree turn (no other exits forward)
+        #    Here we must not cross the opposite base wall
+        # 4) X-junction
+        #    As in case 1/2/3, but must align with opposite 135-degree exit
 
-        base_ext_line = point_sweep(other_point, base_dir, 100)
-
-        # If this passage has an opposing exit, construct it too
-        if dir_45_opp in exits_45:
-            exits_45.remove(dir_45_opp)
-            # Will be swept forward later...
-            new_exits[dir_45_opp] = new_exits[exit_135]
-
-            exit_ext_line = point_sweep(new_exit_point, dir_45_opp, 100)
-            newer_exit_point1 = intersect(base_ext_line, exit_ext_line)
-            new_poly = polygon([other_point, shared_point, new_shared_point,
-                                new_exit_point, newer_exit_point1, other_point])
-        elif ((base_dir in exit_dir_list) or
-              (dir_45_same in exit_dir_list and
-               not dir_135_opp in exit_dir_list) or
-              (dir_90_opp in exit_dir_list and base_dir.is_cardinal())):
-            newer_exit_point1 = translate(new_exit_point, dir_45_opp,
-                                          exit_width)
-            newer_exit_point2 = translate(newer_exit_point1, dir_90_opp,
-                                          base_width)
-            if dir_45_same in exit_dir_list:
-                exits_45.remove(dir_45_same)
-                new_exits[dir_45_same] = line([new_exit_point,
-                                               newer_exit_point1])
-            # We may have already constructed the forward exit; if so,
-            # do not overwrite it here
-            if base_dir in exit_dir_list and not base_dir in new_exits.keys():
-                new_exits[base_dir] = line([newer_exit_point1,
-                                            newer_exit_point2])
-            new_poly = polygon([other_point, shared_point, new_shared_point,
-                                new_exit_point, newer_exit_point1,
-                                newer_exit_point2, other_point])
-        else:
-            # No other exits on this side
-            # Construct the corner of the polygon
-            corner_ext_line = point_sweep(new_exit_point, dir_90_opp, 100)
-            corner_point = intersect(base_ext_line, corner_ext_line)
-            new_poly = polygon([other_point, shared_point, new_shared_point,
-                                new_exit_point, corner_point, other_point])
-
-        log.debug("new_poly: {0}".format(to_string(new_poly)))
-        new_polygon = union(new_polygon, new_poly)
-
-    # End handling of 135-degree turns
-
-    for exit_90 in exits_90:
-        # Easy peasy!
-        (shared_point, other_point) = endpoints_by_direction(base_line, exit_90)
-        exit_point = translate(shared_point, base_dir, exit_width)
-        corner_point = translate(other_point, base_dir, exit_width)
-        new_exits[exit_90] = line([shared_point, exit_point])
-        if base_dir in exit_dir_list and not base_dir in new_exits.keys():
-            new_exits[base_dir] = line([exit_point, corner_point])
-        new_poly = polygon([other_point, shared_point, exit_point, corner_point,
-                            other_point])
-        log.debug("new_poly: {0}".format(to_string(new_poly)))
-        new_polygon = union(new_polygon, new_poly)
-
-    for exit_45 in exits_45:
-        # Any 45-degree angles we didn't already handle...
-        dir_45_opp = base_dir.rotate(45)
-        if dir_45_opp == exit_45:
-            dir_45_opp = base_dir.rotate(-45)
-            dir_90_opp = base_dir.rotate(-90)
-        else:
-            dir_90_opp = base_dir.rotate(90)
         (shared_point, other_point) = endpoints_by_direction(base_line, exit_45)
         if base_dir in exit_dir_list:
-            # Same polygon as above in exit_135:
-            new_exit_point1 = translate(shared_point, exit_45, exit_width)
-            new_shared_point = shared_point
-            new_exit_point2 = translate(new_exit_point1, dir_45_opp, exit_width)
-            if not grid_aligned(line([new_exit_point1, new_exit_point2]),
-                                exit_45):
-                new_shared_point = translate(shared_point, base_dir, 10)
-                new_exit_point1 = translate(new_exit_point1, base_dir, 10)
-                new_exit_point2 = translate(new_exit_point2, base_dir, 10)
-                assert grid_aligned(line([new_exit_point1, new_exit_point2]),
-                                    exit_45)
-            new_exit_point3 = translate(new_exit_point2, dir_90_opp, base_width)
-            new_exits[exit_45] = line([new_exit_point1, new_exit_point2])
-            if not base_dir in new_exits.keys():
-                new_exits[base_dir] = line([new_exit_point2, new_exit_point3])
-            new_poly = polygon([other_point, shared_point, new_shared_point,
-                                new_exit_point1, new_exit_point2,
-                                new_exit_point3])
+            # Case 1. Make way!
+            base_point = translate(shared_point, exit_45, exit_width)
+        elif base_dir.rotate(-45 * s) in exit_dir_list:
+            # Case 2.
+            if ((base_dir.is_cardinal() and base_width >= exit_width) or
+                (exit_45.is_cardinal() and base_width >= 2 * exit_width)):
+                base_point = shared_point
+            elif base_dir.is_cardinal():
+                base_point = translate(shared_point, exit_45,
+                                       (exit_width - base_width))
+            elif exit_45.is_cardinal():
+                base_point = translate(shared_point, exit_45,
+                                       round(exit_width - (base_width/2), -1))
         else:
-            # Construct an initial point and some guiding lines
-            new_exit_point = translate(shared_point, dir_45_opp, exit_width)
-            exit_line = line([shared_point, new_exit_point])
-            base_midline_ext = point_sweep(base_line.interpolate(base_width/2),
-                                           base_dir, 100)
-            base_diag_ext = point_sweep(base_line.interpolate(base_width/2),
-                                        exit_45, 100)
-            other_ext = point_sweep(other_point, base_dir, 100)
-            if exit_line.touches(base_midline_ext):
-                # The simplest case - just a triangle
-                new_exits[exit_45] = exit_line
-                new_poly = polygon([other_point, shared_point, new_exit_point])
-            elif exit_line.crosses(base_midline_ext):
-                if dir_45_opp in exit_dir_list or dir_90_opp in exit_dir_list:
-                    # Sweep it until it no longer crosses the midline
-                    temp_line = line([intersect(exit_line, base_midline_ext),
-                                      new_exit_point])
-                    overlap_len = length(temp_line)
-                    log.debug("overlap of {0} over {1}: {2}"
-                              .format(to_string(exit_line),
-                                      to_string(base_midline_ext),
-                                      overlap_len))
-                elif exit_line.crosses(other_ext):
-                    # Just sweep it until it no longer crosses the other side
-                    temp_line = line([intersect(exit_line, other_ext),
-                                      new_exit_point])
-                    overlap_len = length(temp_line)
-                    log.debug("overlap of {0} over {1}: {2}"
-                              .format(to_string(exit_line),
-                                      to_string(other_ext),
-                                      overlap_len))
-                else:
-                    overlap_len = 0
-                exit_line = translate(exit_line, exit_45, overlap_len)
-                new_exits[exit_45] = exit_line
-                # Construct the polygon
-                (far_point, _) = endpoints_by_direction(exit_line, base_dir)
-                far_ext = point_sweep(far_point, exit_45.rotate(180), 100)
-                corner_point = intersect(other_ext, far_ext)
-                new_poly = loft(line([corner_point, other_point, shared_point]),
-                                exit_line)
-            else:
-                exit_line = translate(exit_line, base_dir,
-                                      (base_width - exit_width))
-                new_exits[exit_45] = exit_line
-                new_poly = loft(base_line, exit_line)
+            # Case 3
+            base_point = shared_point
+            if exit_45.is_cardinal() and exit_width > base_width:
+                base_point = translate(base_point, exit_45,
+                                       (exit_width - base_width))
+            elif base_dir.is_cardinal() and exit_width > 2 * base_width:
+                base_point = translate(base_point, exit_45,
+                                       (exit_width - 2 * base_width))
+            elif base_dir.is_cardinal() and exit_width < base_width:
+                base_point = translate(base_point, base_dir,
+                                       (base_width - exit_width))
+            elif exit_45.is_cardinal() and 2 * exit_width < base_width:
+                base_point = translate(base_point, base_dir,
+                                       (base_width - (2* exit_width)))
 
-        log.debug("new_poly: {0}".format(to_string(new_poly)))
-        new_polygon = union(new_polygon, new_poly)
+        exit_line = point_sweep(base_point, base_dir.rotate(-45 * s),
+                                exit_width)
 
-    # Sanitize things a bit:
-    while True:
-        changed = False
-        for (e_dir, e_line) in new_exits.items():
-            (tmp_poly, new_e_line) = sweep(e_line, e_dir, 10)
-            if intersect(tmp_poly, new_polygon).area > 0:
-                new_exits[e_dir] = new_e_line
-                new_polygon = union(new_polygon, tmp_poly)
-                changed = True
-        if not changed:
-            break
+        if base_dir.rotate(-135 * s) in exit_dir_list:
+            # Case 4
+            exit_line = translate(exit_line, base_dir, base_width)
+            pass
 
-    log.info("polygon: {0}".format(to_string(new_polygon)))
-    log.info("exits: {0}".format([(e_dir.name, to_string(e_line)) for
-                                  (e_dir, e_line) in new_exits.items()]))
+        if not grid_aligned(exit_line, exit_45):
+            exit_line = translate(exit_line, base_dir, 10)
+            assert grid_aligned(exit_line, exit_45)
+            exit_fwd_adjust = True
+
+        new_exits[exit_45] = exit_line
+        continue
+
+
+    if exit_fwd and exit_fwd_adjust:
+        new_exits[exit_fwd] = translate(new_exits[exit_fwd], base_dir, 10)
+
+    # Construct the polygon describing the intersection between these exits.
+    (first_point, last_point) = endpoints_by_direction(base_line,
+                                                       base_dir.rotate(-90))
+    prev_dir = base_dir.rotate(180)
+    points = [last_point, first_point]
+    skip_count = 0
+    for dir in [base_dir.rotate(-135), base_dir.rotate(-90),
+                base_dir.rotate(-45), base_dir, base_dir.rotate(45),
+                base_dir.rotate(90), base_dir.rotate(135)]:
+        if not dir in exit_dir_list:
+            skip_count += 1
+            continue
+        elif skip_count < 3:
+            (p1, p2) = endpoints_by_direction(new_exits[dir], prev_dir)
+        elif skip_count < 5:
+            (p1, p2) = endpoints_by_direction(new_exits[dir],
+                                              prev_dir.rotate(90))
+        else:
+            (p1, p2) = endpoints_by_direction(new_exits[dir],
+                                              prev_dir.rotate(180))
+        if dir != prev_dir.rotate(180):
+            points += intersection_interpolate(points[-1], p1, prev_dir, dir,
+                                               points)
+        points += [p1, p2]
+        prev_dir = dir
+        skip_count = 0
+
+    if base_dir.rotate(180) != prev_dir.rotate(180):
+        points += intersection_interpolate(points[-1], last_point, prev_dir,
+                                           base_dir.rotate(180), points)
+
+    points += [last_point]
+    new_polygon = polygon(points)
+
+    log.debug("exits: {0}, new_polygon: {1}"
+              .format(exit_dir_list, to_string(new_polygon)))
 
     return (new_polygon, new_exits)
+
+
+def intersection_interpolate(p0, p1, d0, d1, points_so_far):
+    """
+    Helper function for construct_intersection().
+    Constructs the intermediate point(s) needed to create a nicely shaped
+    polygon between two exits.
+    """
+    new_point = intersect(point_sweep(p0, d0.rotate(180), 500),
+                          point_sweep(p1, d1.rotate(180), 500))
+    if new_point.is_empty:
+        log.error("Unable to construct intersection between exit segments")
+        return []
+    assert isinstance(new_point, Point), \
+        "intersection {0} is not a Point".format(to_string(new_point))
+    # Avoid self-intersection and redundant points
+    if (line(points_so_far).contains(new_point) or
+        new_point.equals(p0) or new_point.equals(p1) or
+        (len(points_so_far) > 2 and
+         line(points_so_far[:-1]).crosses(line([p0, new_point])))):
+        log.warning("Not adding point {0} as it would self-intersect"
+                    .format(to_string(new_point)))
+        return []
+    else:
+        return [new_point]
 
 
 def cardinal_to_diagonal(base_line, new_orientation):
@@ -944,7 +914,9 @@ def line(coords):
     else:
         raise RuntimeError("Don't know how to construct a line segment from {0}"
                            .format(coords))
-    assert line.is_valid
+    assert line.is_valid, ("{0} does not yield a valid line: {1}"
+                           .format(to_string(coords),
+                                   shapely.validation.explain_validity(line)))
     return line
 
 
@@ -953,7 +925,9 @@ def line_loop(coords):
     (implicitly connecting end and start if needed).
     """
     loop = LinearRing(coords)
-    assert loop.is_valid
+    assert loop.is_valid, ("{0} does not yield a valid line: {1}"
+                           .format(to_string(Coords),
+                                   shapely.validation.explain_validity(loop)))
     return loop
 
 
@@ -971,7 +945,9 @@ def polygon(coords=None):
     else:
         raise RuntimeError("Not sure how to create Polygon from {0}"
                            .format(coords))
-    assert poly.is_valid
+    assert poly.is_valid, ("{0} does not yield a valid polygon: {1}"
+                           .format(to_string(coords),
+                                   shapely.validation.explain_validity(poly)))
     return poly
 
 
@@ -1277,5 +1253,8 @@ def differ(geometry_1, geometry_2):
         difference = difference.buffer(0)
 
     log.debug("Cleaned up difference is {0}".format(to_string(difference)))
-    assert difference.is_valid
+    assert difference.is_valid, ("difference of {0} and {1} is not valid: {2}"
+                                 .format(to_string(geometry_1),
+                                         to_string(geometry_2),
+                            shapely.validation.explain_validity(difference)))
     return difference
