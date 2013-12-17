@@ -111,7 +111,8 @@ class DungeonGenerator:
             return
         elif roll <= 5:
             self.print_roll(roll, "There is a door here")
-            # TODO
+            self.generate_door_in_passage(connection)
+            return
         elif roll <= 10:
             self.print_roll(roll, "The passage branches; each branch "
                             "continues another 30 feet")
@@ -151,6 +152,61 @@ class DungeonGenerator:
         # TODO
         log.info("Rerolling")
         self.continue_passage(connection)
+
+
+    def generate_door_in_passage(self, connection):
+        """
+        Construct a doorway(s) (side door or end ahead) from a passageway.
+        """
+        print("Rolling door(s) from the passage...")
+
+        base_dir = connection.direction
+        exit_dirs = set([base_dir])
+        door_ahead = False
+
+        # We can generate anywhere from 1 to 3 doors (left / right / ahead).
+        while True:
+            roll = d20()
+            if roll <= 6:
+                self.print_roll(roll, "Door to the left")
+                exit_dirs.add(base_dir.rotate(90))
+            elif roll <= 12:
+                self.print_roll(roll, "Door to the right")
+                exit_dirs.add(base_dir.rotate(-90))
+            else:
+                self.print_roll(roll, "Door ahead")
+                door_ahead = True
+                # As soon as we hit a door ahead, stop rerolling
+                break
+
+            # Should we generate more doors?
+            roll = d20()
+            if (3 <= roll and roll <= 5):
+                self.print_roll(roll, "Roll again")
+            else:
+                self.print_roll(roll, "No more doors")
+                break
+
+        (polygon, exit_dict) = aagen.geometry.construct_intersection(
+            connection.line, base_dir, exit_dirs, connection.size())
+        region = Region(Region.PASSAGE, polygon)
+        region.add_connection(connection)
+
+        forward_conn = None
+        for (exit_dir, exit_line) in exit_dict.items():
+            # If an "ahead" door is not generated, passage continues
+            if exit_dir == base_dir and not door_ahead:
+                conn = Connection(Connection.OPEN, exit_line, region, exit_dir)
+                forward_conn = conn
+            else:
+                # TODO - need to reduce exit_line size to 10' if passage
+                # was wider than 10' to begin with.
+                conn = Connection(Connection.DOOR, exit_line, region, exit_dir)
+
+        self.dungeon_map.add_region(region)
+        # If an "ahead" door is not generated, passage continues
+        if forward_conn:
+            self.extend_passage(forward_conn, 30)
 
 
     def generate_space_beyond_door(self, connection):
