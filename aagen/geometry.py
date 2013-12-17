@@ -1125,13 +1125,14 @@ def oval_list(area):
                    int(10 * math.ceil(math.sqrt(area) / 10)),
                    10):
         w = round(area / h - ((math.pi / 4) * h), -1)
-        log.info("Candidate: {w} x {h}".format(w=w, h=h))
+        log.info("Candidate: {w} x {h} ({w}+{h} x {h})".format(w=w, h=h))
         if h % 20 == 0:
             offset = 0
         else:
             offset = 5
-        line = LineString([(offset, offset), (offset, w + offset)])
-        oval = line.buffer(h/2)
+        oval = union(point(offset, offset).buffer(h/2 - 0.1),
+                     point(w + offset, offset).buffer(h/2 - 0.1),
+                     box(offset, offset - h/2, offset + w, offset + h/2))
         ovals.append(oval)
         ovals.append(shapely.affinity.rotate(oval, 90, origin=(0,0)))
 
