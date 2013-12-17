@@ -647,7 +647,7 @@ def find_edge_segments(poly, width, direction):
         offset = Direction.E
         def check_width(intersection):
             w = intersection.bounds[2] - intersection.bounds[0]
-            return w == width
+            return w >= width
         def check_size(intersection, size):
             # Make sure width matches "size" and height not too much
             w = intersection.bounds[2] - intersection.bounds[0]
@@ -665,7 +665,7 @@ def find_edge_segments(poly, width, direction):
         offset = Direction.N
         def check_width(intersection):
             h = intersection.bounds[3] - intersection.bounds[1]
-            return h == width
+            return h >= width
         def check_size(intersection, size):
             # Make sure height matches "size" and width not too much
             w = intersection.bounds[2] - intersection.bounds[0]
@@ -699,11 +699,12 @@ def find_edge_segments(poly, width, direction):
         point3 = translate(point2, Direction.SW, width)
         point4 = translate(point1, Direction.SW, width)
         inter_box = polygon([point1, point2, point3, point4])
+        log.debug("inter_box: {0}".format(to_string(inter_box)))
         offset = Direction.SW
         def check_width(intersection):
             l = ((intersection.bounds[2] - intersection.bounds[0]) +
                  (intersection.bounds[3] - intersection.bounds[1]))
-            return l == width
+            return l >= width
         def check_size(intersection, size):
             w = intersection.bounds[2] - intersection.bounds[0]
             h = intersection.bounds[3] - intersection.bounds[1]
@@ -736,11 +737,12 @@ def find_edge_segments(poly, width, direction):
         point3 = translate(point2, Direction.SE, width)
         point4 = translate(point1, Direction.SE, width)
         inter_box = polygon([point1, point2, point3, point4])
+        log.debug("inter_box: {0}".format(to_string(inter_box)))
         offset = Direction.SE
         def check_width(intersection):
             l = ((intersection.bounds[2] - intersection.bounds[0]) +
                  (intersection.bounds[3] - intersection.bounds[1]))
-            return l == width
+            return l >= width
         def check_size(intersection, size):
             w = intersection.bounds[2] - intersection.bounds[0]
             h = intersection.bounds[3] - intersection.bounds[1]
@@ -754,6 +756,11 @@ def find_edge_segments(poly, width, direction):
 
     log.debug("box: {0}, offset: {1}".format(to_string(inter_box), offset))
     candidates = []
+
+    if inter_box.contains(poly) and not inter_box.equals(poly):
+        log.warning("Box {0} contains poly {1}!"
+                    .format(to_string(inter_box), to_string(poly)))
+        return candidates
 
     first_hit = False
 
@@ -770,6 +777,12 @@ def find_edge_segments(poly, width, direction):
                 break
         best = None
         first_hit = True
+        diff = differ(inter_box, poly)
+        if not hasattr(differ(inter_box, poly), "geoms"):
+            log.info("Not a complete intersection? {0}"
+                     .format(to_string(differ(inter_box, poly))))
+            inter_box = translate(inter_box, offset, 10)
+            continue
         if not hasattr(intersection, "geoms"):
             intersection = [intersection]
 
@@ -788,11 +801,11 @@ def find_edge_segments(poly, width, direction):
         if best is None:
             continue
 
-        log.debug("Found section: {0}".format(to_string(best)))
+        log.info("Found section: {0}".format(to_string(best)))
         candidates.append(best)
 
     log.info("Found {0} candidate edges: {1}"
-             .format(len(candidates), [bounds_str(c) for c in candidates]))
+             .format(len(candidates), [to_string(c) for c in candidates]))
     return candidates
 
 
@@ -844,7 +857,7 @@ def trim(shape, trimmer, adjacent_shape):
 
 def minimize_line(base_line, validator):
     """Trim the given line from both ends to the minimal line(s) that
-    satisfy the given validator function. Returns a list of 1 or 2
+    satisfy the given validator function. Returns a list of 0 or 2
     lines that satisfy this criteria.
 
     For example:
@@ -861,6 +874,11 @@ def minimize_line(base_line, validator):
       |        --->    |
       '--              |
     """
+
+    if not validator(base_line):
+        log.info("Base line {0} does not satisfy validator"
+                 .format(to_string(base_line)))
+        return []
 
     # First line: delete from end, then from beginning
     coords = list(base_line.coords)
