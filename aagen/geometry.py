@@ -642,8 +642,8 @@ def find_edge_segments(poly, width, direction):
     (xmin, ymin, xmax, ymax) = poly.bounds
 
     if direction == Direction.N or direction == Direction.S:
-        inter_box = box(math.floor(xmin/10)*10, ymin,
-                        math.floor(xmin/10)*10 + width, ymax)
+        inter_box = box(math.floor(xmin/10)*10, ymin - 10,
+                        math.floor(xmin/10)*10 + width, ymax + 10)
         offset = Direction.E
         def check_width(intersection):
             w = intersection.bounds[2] - intersection.bounds[0]
@@ -660,8 +660,8 @@ def find_edge_segments(poly, width, direction):
             def prefer(option_a, option_b):
                 return (option_a.bounds[1] < option_b.bounds[1])
     elif direction == Direction.W or direction == Direction.E:
-        inter_box = box(xmin, math.floor(ymin/10)*10,
-                        xmax, math.floor(ymin/10)*10 + width)
+        inter_box = box(xmin - 10, math.floor(ymin/10)*10,
+                        xmax + 10, math.floor(ymin/10)*10 + width)
         offset = Direction.N
         def check_width(intersection):
             h = intersection.bounds[3] - intersection.bounds[1]
