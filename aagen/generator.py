@@ -188,7 +188,7 @@ class DungeonGenerator:
                 break
 
         (polygon, exit_dict) = aagen.geometry.construct_intersection(
-            connection.line, base_dir, exit_dirs, connection.size())
+            connection.line, base_dir, exit_dirs, 10)
         region = Region(Region.PASSAGE, polygon)
         region.add_connection(connection)
 
