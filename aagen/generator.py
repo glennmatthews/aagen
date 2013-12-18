@@ -135,7 +135,8 @@ class DungeonGenerator:
             # TODO
         elif roll <= 18:
             self.print_roll(roll, "Passage dead-ends - check for secret doors")
-            # TODO
+            self.construct_dead_end(connection)
+            return
         elif roll <= 19:
             self.print_roll(roll, "A trap or other oddity, then the passage "
                             "continues for 30 feet")
@@ -152,6 +153,35 @@ class DungeonGenerator:
         # TODO
         log.info("Rerolling")
         self.continue_passage(connection)
+
+    def construct_dead_end(self, connection):
+        """
+        Construct a dead end (possibly with secret doors) from a passageway.
+        """
+
+        print("Constructing dead end and checking for secret doors...")
+
+        base_dir = connection.direction
+        exit_dirs = [base_dir, base_dir.rotate(90), base_dir.rotate(-90)]
+
+        (polygon, exit_dict) = aagen.geometry.construct_intersection(
+            connection.line, base_dir, exit_dirs, 10)
+        region = Region(Region.PASSAGE, polygon)
+        region.add_connection(connection)
+
+        for direction in exit_dirs:
+            roll = d20()
+            if roll <= 5:
+                self.print_roll(roll, "A secret door to the {0}"
+                                .format(direction.name))
+                # TODO - for base_dir may need to reduce exit_line size to 10'
+                conn = Connection(Connection.SECRET, exit_dict[direction],
+                                  region, direction)
+            else:
+                self.print_roll(roll, "No secret door to the {0}"
+                                .format(direction.name))
+
+        self.dungeon_map.add_region(region)
 
 
     def generate_door_in_passage(self, connection):
