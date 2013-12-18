@@ -531,14 +531,14 @@ class DungeonGenerator:
 
         # Most amount of wall space shared with existing regions:
         candidate_regions = sorted(candidate_regions,
-                                   key=lambda r: r.shared_walls,
+                                   key=lambda r: round(r.shared_walls),
                                    reverse=True)
         log.debug("Candidates: {0}"
                  .format("\n".join(str(r) for r in candidate_regions)))
 
         # Least truncation - discard all those that don't make the cut!
         candidate_regions = filtered(candidate_regions,
-                                     key=lambda r: r.amount_truncated,
+                                     key=lambda r: round(r.amount_truncated),
                                      epsilon=50)
         log.debug("Candidates: {0}"
                  .format("\n".join(str(r) for r in candidate_regions)))
