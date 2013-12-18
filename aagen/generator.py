@@ -330,16 +330,13 @@ class DungeonGenerator:
             dirs = [base_dir, base_dir.rotate(-90), base_dir.rotate(90)]
         else:
             self.print_roll(roll, "An X-junction")
-            # TODO - less faithful to the original tables, but perhaps more
-            # interesting, would be to treat this as a skewed four-way
-            # intersection, i.e., between a cardinal and a non-cardinal passage
-            if base_dir.is_cardinal():
-                # The current passage ends and all four parts of the X branch
-                dirs = [base_dir.rotate(45), base_dir.rotate(-45),
-                        base_dir.rotate(135), base_dir.rotate(-135)]
+            roll = d20()
+            if roll <= 10:
+                self.print_roll(roll, "X-junction to the left")
+                dirs = [base_dir, base_dir.rotate(45), base_dir.rotate(-135)]
             else:
-                # Same as a four-way intersection, just oriented non-cardinally
-                dirs = [base_dir, base_dir.rotate(90), base_dir.rotate(-90)]
+                self.print_roll(roll, "X-junction to the right")
+                dirs = [base_dir, base_dir.rotate(-45), base_dir.rotate(135)]
 
         new_width = self.roll_passage_width()
 
