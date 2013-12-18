@@ -606,6 +606,10 @@ def loft_to_grid(base_line, dir, width):
     while (sweep(candidate_2, dir, 50)[0].crosses(base_line) or
            sweep(candidate_2, dir, 50)[0].contains(base_line)):
         candidate_2 = translate(candidate_2, dir, 10)
+
+    # Provide sufficient overlap with the base shape for safety
+    base_line = translate(base_line, dir, -1)
+
     poly1 = loft(base_line, candidate_1)
     poly2 = loft(base_line, candidate_2)
 
@@ -1239,6 +1243,8 @@ def intersect(geometry_1, geometry_2):
     """
 
     intersection = geometry_1.intersection(geometry_2)
+    if intersection.is_empty:
+        return intersection
     log.debug("Naive intersection is {0}".format(to_string(intersection)))
 
     if intersection.area == 0 and intersection.length > 0:
@@ -1254,7 +1260,9 @@ def intersect(geometry_1, geometry_2):
                 if geom.length > 0:
                     line_list.append(geom)
             intersection = shapely.ops.linemerge(line_list)
-    log.debug("Cleaned up intersection is {0}".format(to_string(intersection)))
+            log.debug("Cleaned up intersection is {0}"
+                      .format(to_string(intersection)))
+
     return intersection
 
 
@@ -1264,14 +1272,16 @@ def differ(geometry_1, geometry_2):
     """
 
     difference = geometry_1.difference(geometry_2)
+    if difference.is_empty:
+        return difference
     log.debug("Naive difference is {0}".format(to_string(difference)))
 
     if difference.area > 0 and not difference.is_valid:
         # The resulting polygon may be overly complex - simplify it
         # if we can.
         difference = difference.buffer(0)
+        log.debug("Cleaned up difference is {0}".format(to_string(difference)))
 
-    log.debug("Cleaned up difference is {0}".format(to_string(difference)))
     assert difference.is_valid, ("difference of {0} and {1} is not valid: {2}"
                                  .format(to_string(geometry_1),
                                          to_string(geometry_2),

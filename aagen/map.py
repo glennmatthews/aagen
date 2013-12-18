@@ -341,8 +341,11 @@ class DungeonMap:
 
             # Make sure the extension doesn't overflow into existing space,
             # as can happen when there is a diagonal passage nearby:
-            if aagen.geometry.intersect(conn_poly,
-                                        self.conglomerate_polygon).area > 0:
+            if aagen.geometry.intersect(
+                    conn_poly,
+                    aagen.geometry.differ(self.conglomerate_polygon,
+                                          region.polygon)).area > 0:
+                log.debug("Overflows into existing space - invalid")
                 valid = False
 
             if valid:
@@ -406,7 +409,7 @@ class DungeonMap:
             for edge in edges:
                 if aagen.geometry.grid_aligned(edge, direction):
                     edge_line = edge
-                    edge_poly = None
+                    edge_poly = aagen.geometry.polygon()
                 else:
                     (edge_line, edge_poly) = aagen.geometry.loft_to_grid(
                         edge, direction.rotate(180), width)
@@ -433,7 +436,7 @@ class DungeonMap:
                         .format(dx=dx, dy=dy)
 
                 test_polygon = aagen.geometry.translate(polygon, dx, dy)
-                if edge_poly is not None:
+                if not edge_poly.is_empty:
                     test_polygon = aagen.geometry.union(
                         test_polygon,
                         aagen.geometry.translate(edge_poly, dx, dy))

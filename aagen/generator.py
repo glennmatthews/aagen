@@ -462,7 +462,7 @@ class DungeonGenerator:
         # (only really an issue when connecting to an unusually-shaped room!)
         # and discard those that don't make the cut
         candidate_connections = filtered(candidate_connections,
-                                         lambda r: r.polygon.area)
+                                         lambda r: round(r.polygon.area))
 
         # Randomly choose amongst the rest
         return random.choice(candidate_connections)
