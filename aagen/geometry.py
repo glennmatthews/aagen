@@ -761,7 +761,8 @@ def find_edge_segments(poly, width, direction):
     log.debug("box: {0}, offset: {1}".format(to_string(inter_box), offset))
     candidates = []
 
-    if inter_box.contains(poly) and not inter_box.equals(poly):
+    if (inter_box.contains(poly) and not inter_box.equals(poly) and
+        not hasattr(inter_box.difference(poly), "geoms")):
         log.warning("Box {0} contains poly {1}!"
                     .format(to_string(inter_box), to_string(poly)))
         return candidates
