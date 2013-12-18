@@ -386,7 +386,7 @@ class DungeonMap:
         log.info("Looking for positional options for region(s) {0} "
                  "adjacent to {1} in {2}"
                  .format([to_string(c) for c in shape_list],
-                         connection.line, direction))
+                         to_string(connection.line), direction))
 
         # Our approach is as follows:
         # For each of the candidate shapes in shape_list:
@@ -414,6 +414,23 @@ class DungeonMap:
 
                 dx = connection.line.bounds[0] - edge_line.bounds[0]
                 dy = connection.line.bounds[1] - edge_line.bounds[1]
+
+                # Make sure the region stays grid-aligned
+                if (not direction.is_cardinal() and
+                    (dx % 10 != 0 or dy % 10 != 0)):
+                    log.info("Adjusting edge_line {0}, edge_poly {1} to be grid-aligned"
+                             .format(to_string(edge_line), to_string(edge_poly)))
+                    (new_edge_poly, edge_line) = aagen.geometry.sweep(
+                        edge_line, direction.rotate(180), 10)
+                    edge_poly = aagen.geometry.union(edge_poly, new_edge_poly)
+                    dx = connection.line.bounds[0] - edge_line.bounds[0]
+                    dy = connection.line.bounds[1] - edge_line.bounds[1]
+                    log.info("new edge_poly {0}, edge_line {1}"
+                             .format(to_string(edge_poly), to_string(edge_line)))
+
+                assert (dx % 10 == 0 and dy % 10 == 0), \
+                    "Should be grid aligned but is not ({dx}, {dy})" \
+                        .format(dx=dx, dy=dy)
 
                 test_polygon = aagen.geometry.translate(polygon, dx, dy)
                 if edge_poly is not None:
@@ -587,7 +604,8 @@ class Region(MapElement):
         shape = self.get_wall_lines()
         coords_list = aagen.geometry.lines_to_coords(shape)
         if not coords_list:
-            log.info("Room has no open walls at all?")
+            log.info("Room {0} has no open walls at all?"
+                     .format(self))
         log.debug("{0} has walls: {1}".format(self, coords_list))
         return coords_list
 
