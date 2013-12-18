@@ -70,8 +70,8 @@ def main():
     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
     for i in range(0, args.run_steps):
         dungeon_map.flush()
-        dungeon_display.draw(verbosity=args.verbose)
         dungeon_generator.step()
+        dungeon_display.draw(verbosity=args.verbose)
 
     dungeon_map.flush()
     dungeon_display.draw(verbosity=args.verbose)
