@@ -720,12 +720,12 @@ class DungeonGenerator:
 
         if area <= area_filter:
             self.print_roll(roll, "No larger than {filter} square feet, "
-                            "so it has {exits} exits"
+                            "so it has {exits} exit(s)"
                             .format(filter=area_filter, exits=less))
             return less
         else:
             self.print_roll(roll, "Larger than {filter} square feet, "
-                            "so it has {exits} exits"
+                            "so it has {exits} exit(s)"
                             .format(filter=area_filter, exits=more))
             return more
 
