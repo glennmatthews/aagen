@@ -744,7 +744,7 @@ class Connection(MapElement):
         mid1 = self.line.interpolate(2)
         mid2 = self.line.interpolate(self.line.length - 2)
         end = self.line.boundary[1]
-        sub_line = aagen.geometry.line([mid1, mid2])
+        sub_line = aagen.geometry.line(mid1, mid2)
         left = sub_line.parallel_offset(1.5, 'left')
         right = sub_line.parallel_offset(1.5, 'right')
         if kind == Connection.DOOR:
@@ -752,12 +752,12 @@ class Connection(MapElement):
                                aagen.geometry.line_loop(list(left.coords) +
                                                         list(right.coords))]
         elif kind == Connection.ARCH:
-            self.draw_lines = [aagen.geometry.line([start, mid1]),
-                               aagen.geometry.line([mid2, end]),
-                               aagen.geometry.line([left.boundary[0],
-                                                    right.boundary[1]]),
-                               aagen.geometry.line([left.boundary[1],
-                                                    right.boundary[0]])]
+            self.draw_lines = [aagen.geometry.line(start, mid1),
+                               aagen.geometry.line(mid2, end),
+                               aagen.geometry.line(left.boundary[0],
+                                                   right.boundary[1]),
+                               aagen.geometry.line(left.boundary[1],
+                                                   right.boundary[0])]
         elif kind == Connection.OPEN:
             self.draw_lines = []
         elif kind == Connection.ONEWAY:
@@ -776,7 +776,7 @@ class Connection(MapElement):
                                                      self.direction.rotate(225),
                                                      arrowhead_len)
             self.draw_lines = [self.line, door_ring,
-                               aagen.geometry.line([mid, arrow_point]),
+                               aagen.geometry.line(mid, arrow_point),
                                arrow_line1, arrow_line2]
         elif kind == Connection.SECRET:
             # Construct an "S" consisting of two 3/4 circles
