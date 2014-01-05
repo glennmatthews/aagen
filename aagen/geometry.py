@@ -354,7 +354,7 @@ def intersection_interpolate(p0, p1, d0, d1, points_so_far):
     if (line(points_so_far).contains(new_point) or
         new_point.equals(p0) or new_point.equals(p1) or
         (len(points_so_far) > 2 and
-         line(points_so_far[:-1]).crosses(line([p0, new_point])))):
+         line(points_so_far[:-1]).crosses(line(p0, new_point)))):
         log.warning("Not adding point {0} as it would self-intersect"
                     .format(to_string(new_point)))
         return []
@@ -394,7 +394,7 @@ def cardinal_to_diagonal(base_line, new_orientation):
     yb = (y1 - y0)/2 + (base_dir.vector[1] * (x1 - x0)/2)
     log.debug("new point: {0}, {1}".format(xb, yb))
 
-    new_line = line([(xa, ya), (xb, yb)])
+    new_line = line((xa, ya), (xb, yb))
     log.debug("new line is {0}".format(to_string(new_line)))
     return new_line
 
@@ -444,7 +444,7 @@ def diagonal_to_cardinal(base_line, new_orientation):
     xb = xa + new_orientation.vector[1] * (2 * (y1 - y0))
     yb = ya + new_orientation.vector[0] * (2 * (x1 - x0))
     log.debug("second point: {0}, {1}".format(xb, yb))
-    new_line = line([(xa, ya), (xb, yb)])
+    new_line = line((xa, ya), (xb, yb))
     log.info("new line is {0}".format(to_string(new_line)))
     return new_line
 
@@ -472,7 +472,7 @@ def point_sweep(point, dx_or_dir, dy_or_dist):
     Returns the constructed line
     """
     point2 = translate(point, dx_or_dir, dy_or_dist)
-    new_line = line([point, point2])
+    new_line = line(point, point2)
     return new_line
 
 
@@ -530,12 +530,14 @@ def loft(*args):
             if poly1.is_valid:
                 poly = poly1
 
-        if poly is None:
+        if poly is None and (not line(line1.boundary[0], line2.boundary[0])
+                             .crosses(line(line1.boundary[1], line2.boundary[1]))):
             poly1 = (Polygon(list(line1.coords) + list(reversed(line2.coords))))
             if poly1.is_valid:
                 poly = poly1
 
-        if poly is None:
+        if poly is None and (not line(line1.boundary[0], line2.boundary[1])
+                             .crosses(line(line1.boundary[1], line2.boundary[0]))):
             poly1 = (Polygon(list(line1.coords) + list(line2.coords)))
             if poly1.is_valid:
                 poly = poly1
@@ -925,12 +927,14 @@ def point(x, y):
     return Point(x, y)
 
 
-def line(coords):
+def line(*coords):
     """Construct a line segment from the given coordinate sequence.
     """
+    if len(coords) == 1:
+        coords = coords[0]
     if isinstance(coords, LineString):
         line = coords
-    elif isinstance(coords, CoordinateSequence) or type(coords) is list:
+    elif len(coords) > 0:
         if isinstance(coords[0], Point):
             coords = [(point.x, point.y) for point in coords]
         line = LineString(coords)
