@@ -166,7 +166,9 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
     # Make sure the direction we were given matches the base line's orientation
     test_dir = Direction.normal_to(base_line)
     assert (test_dir.angle_from(base_dir) == 0 or
-            test_dir.angle_from(base_dir) == 180)
+            test_dir.angle_from(base_dir) == 180), \
+        ("{0} must be same as or 180 degrees opposite {1}"
+         .format(test_dir, base_dir))
 
     base_width = length(base_line)
     if exit_width is None:
@@ -218,9 +220,13 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
         (shared_point, _) = endpoints_by_direction(base_line, exit_135)
         exit_line = point_sweep(shared_point, base_dir.rotate(45*s), exit_width)
         if not grid_aligned(exit_line, exit_135):
-            exit_line = translate(exit_line, base_dir, 10)
+            new_exit_line = translate(exit_line, base_dir, 10)
+            assert grid_aligned(exit_line, exit_135), \
+                ("Even after adjusting from {0}, {1} is not grid-aligned to {2}"
+                 .format(to_string(exit_line), to_string(new_exit_line),
+                         exit_135))
+            exit_line = new_exit_line
             exit_fwd_adjust = True
-            assert grid_aligned(exit_line, exit_135)
         new_exits[exit_135] = exit_line
 
     for s in [1, -1]:
@@ -286,8 +292,12 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
             pass
 
         if not grid_aligned(exit_line, exit_45):
-            exit_line = translate(exit_line, base_dir, 10)
-            assert grid_aligned(exit_line, exit_45)
+            new_exit_line = translate(exit_line, base_dir, 10)
+            assert grid_aligned(new_exit_line, exit_45), \
+                ("Even after adjusting from {0}, {1} is not grid-aligned to {2}"
+                 .format(to_string(exit_line), to_string(new_exit_line),
+                         exit_45))
+            exit_line = new_exit_line
             exit_fwd_adjust = True
 
         new_exits[exit_45] = exit_line
