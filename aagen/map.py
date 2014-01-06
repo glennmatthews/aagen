@@ -71,7 +71,7 @@ class DungeonMap:
         self.regions = SortedSet()
         self.connections = SortedSet()
         self.decorations = SortedSet()
-        self.conglomerate_polygon = None
+        self.conglomerate_polygon = aagen.geometry.polygon()
         self.id = self._ids.next()
         log.debug("Initialized {0}".format(self))
 
@@ -146,6 +146,12 @@ class DungeonMap:
         assert isinstance(region, Region)
         if not region in self.regions:
             log.info("Adding Region ({0}) to {1}".format(region, self))
+            inter = aagen.geometry.intersect(region.polygon,
+                                             self.conglomerate_polygon)
+            if inter.area > 0:
+                # TODO - convert this to an exception
+                log.error("Trying to add {0} intersects existing map: {1}"
+                          .format(region, to_string(inter)))
             self.regions.add(region)
             self.refresh_conglomerate()
             for decoration in region.decorations:
