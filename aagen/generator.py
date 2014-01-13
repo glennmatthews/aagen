@@ -464,13 +464,13 @@ class DungeonGenerator:
             print("No normal exits were generated - check for secret doors")
             for direction in Direction.CARDINAL:
                 candidates = self.dungeon_map.find_options_for_connection(
-                    10, new_region, direction)
+                    10, new_region, direction, allow_rotation=True)
                 for candidate in candidates:
                     roll = d20()
                     if roll <= 5:
                         self.print_roll(roll, "Secret door here!")
                         conn = Connection(Connection.SECRET, candidate.line,
-                                          new_region, direction)
+                                          new_region, candidate.dir)
                         new_region.add_connection(conn)
                         self.dungeon_map.add_connection(conn)
                     else:

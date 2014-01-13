@@ -318,11 +318,13 @@ class DungeonMap:
 
 
     def find_options_for_connection(self, width, region, direction,
-                                    new_only=True):
+                                    new_only=True, allow_rotation=False):
         """Find valid positional options (if any) for placing a Connection
         of the given size along the given edge of the given region).
         If new_only is set then only positions leading to new (unmapped) space
         will be considered as valid.
+        If allow_rotation is set then connection options may be rotated by
+        +/- 45 degrees if that makes for a better fit.
         Returns a list of CandidateConnections."""
 
         log.info("Finding options for a connection (width {0}) adjacent to "
@@ -334,10 +336,21 @@ class DungeonMap:
                                                      direction)
         candidates = []
         for segment in segments:
+            exit_dir = direction
             log.debug("Evaluating candidate segment: {0}"
                           .format(to_string(segment)))
             valid = True
             if aagen.geometry.grid_aligned(segment, direction):
+                conn_poly = aagen.geometry.polygon()
+            elif (allow_rotation and
+                  aagen.geometry.grid_aligned(segment,
+                                              direction.rotate(45))):
+                exit_dir = direction.rotate(45)
+                conn_poly = aagen.geometry.polygon()
+            elif (allow_rotation and
+                  aagen.geometry.grid_aligned(segment,
+                                              direction.rotate(-45))):
+                exit_dir = direction.rotate(-45)
                 conn_poly = aagen.geometry.polygon()
             else:
                 (segment, conn_poly) = aagen.geometry.loft_to_grid(
@@ -375,7 +388,7 @@ class DungeonMap:
                         break
             if valid:
                 candidates.append(CandidateConnection(segment, conn_poly,
-                                                      direction, region))
+                                                      exit_dir, region))
 
         log.info("{0} candidate positions were identified after inspecting "
                  "{1} possibilities"

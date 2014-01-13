@@ -221,7 +221,7 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
         exit_line = point_sweep(shared_point, base_dir.rotate(45*s), exit_width)
         if not grid_aligned(exit_line, exit_135):
             new_exit_line = translate(exit_line, base_dir, 10)
-            assert grid_aligned(exit_line, exit_135), \
+            assert grid_aligned(new_exit_line, exit_135), \
                 ("Even after adjusting from {0}, {1} is not grid-aligned to {2}"
                  .format(to_string(exit_line), to_string(new_exit_line),
                          exit_135))
