@@ -937,7 +937,7 @@ def minimize_line(base_line, validator):
             return [base_line]
         else:
             log.debug("Minimized line {0} to {1}"
-                      .format(to_string(base_line, to_string(line1))))
+                      .format(to_string(base_line), to_string(line1)))
             return [line1]
     else:
         log.debug("Minimized line {0} to {1} and {2}"
