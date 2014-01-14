@@ -795,9 +795,9 @@ def find_edge_segments(poly, width, direction):
         best = None
         first_hit = True
         diff = differ(inter_box, poly)
-        if not hasattr(differ(inter_box, poly), "geoms"):
+        if not hasattr(diff, "geoms"):
             log.info("Not a complete intersection? {0}"
-                     .format(to_string(differ(inter_box, poly))))
+                     .format(to_string(diff)))
             inter_box = translate(inter_box, offset, 10)
             continue
         if not hasattr(intersection, "geoms"):
@@ -807,15 +807,20 @@ def find_edge_segments(poly, width, direction):
         for segment in intersection:
             segments += minimize_line(segment, check_width)
         intersection = segments
+        log.debug("Intersection: {0}"
+                  .format([to_string(x) for x in intersection]))
 
         for linestring in intersection:
-            if check_size(linestring, width):
-                if best is None or prefer(linestring, best):
-                    best = linestring
+            if best is None or prefer(linestring, best):
+                if best is not None:
+                    log.info("Preferring {0} over {1}"
+                             .format(to_string(linestring),
+                                     to_string(best)))
+                best = linestring
 
         inter_box = translate(inter_box, offset, 10)
 
-        if best is None:
+        if best is None or not check_size(best, width):
             continue
 
         log.info("Found section: {0}".format(to_string(best)))
