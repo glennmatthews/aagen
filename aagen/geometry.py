@@ -1088,14 +1088,15 @@ def triangle_list(area):
             shapely.affinity.rotate(triangle, 270)]
 
 
-def trapezoid_list(area):
+def trapezoid_list(area, rotate_and_mirror=True):
     """Returns a list of possible trapezoids (various height/width ratios,
     various orientations) with approximately the requested area.
 
     We support two kinds of trapezoids:
-    |---\            /--\
-    |    \    and   /    \
-    |-----\        /------\
+        w1                 w2
+      |----\              /--\
+    h |     \    and  h  /    \
+      |------\          /------\
     both with nice 45 degree angles.
 
     In theory, these can vary widely in their aspect ratio:
@@ -1110,44 +1111,52 @@ def trapezoid_list(area):
     This ratio is very much arbitrary and hand-tuned.
     """
 
+    log.info("Generating list of trapezoids with area {0}".format(area))
+
     trapezoids = []
     for h in range(int(10 * math.ceil(math.sqrt(area/2) / 10)),
                    int(10 * math.ceil(math.sqrt(area * 3/2) / 10)), 10):
         w1 = round((area / h) - (h / 2), -1)
         w2 = round((area / h) - h, -1)
-        log.info("Candidates: one-sided {w1} x {h}, two-sided {w2} x {h}"
-                 .format(w1=w1, w2=w2, h=h))
+        log.debug("Candidates: one-sided {w1} x {h}, two-sided {w2} x {h}"
+                  .format(w1=w1, w2=w2, h=h))
         # w1 is larger than w2, so if it's too small we know we're done
         if w1 < 10:
             break
-        if w1 >= 10:
+        if w1 >= 10: # TODO and (2 * w1 >= h):
             # one-sided trapezoid - 8 possible orientations
             trapezoid = polygon([(0, 0), (w1, 0), (w1 + h, h), (0, h)])
+            log.debug("one-sided trapezoid: {0}, area {1}"
+                      .format(to_string(trapezoid), trapezoid.area))
             trapezoids.append(trapezoid)
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
-                                                      origin=(0, 0)))
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
-                                                      origin=(0, 0)))
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
-                                                      origin=(0, 0)))
-            trapezoid = shapely.affinity.scale(trapezoid, xfact=-1.0)
-            trapezoids.append(trapezoid)
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
-                                                      origin=(0, 0)))
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
-                                                      origin=(0, 0)))
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
-                                                      origin=(0, 0)))
-        if w2 >= 10:
+            if rotate_and_mirror:
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
+                                                          origin=(0, 0)))
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
+                                                          origin=(0, 0)))
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
+                                                          origin=(0, 0)))
+                trapezoid = shapely.affinity.scale(trapezoid, xfact=-1.0)
+                trapezoids.append(trapezoid)
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
+                                                          origin=(0, 0)))
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
+                                                          origin=(0, 0)))
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
+                                                          origin=(0, 0)))
+        if w2 >= 10: # TODO and (3 * w2) >= h:
             # two-sided trapezoid - 4 possible orientations
             trapezoid = polygon([(0, 0), (h + w2 + h, 0), (h + w2, h), (h, h)])
+            log.debug("two-sided trapezoid: {0} area {1}"
+                      .format(to_string(trapezoid), trapezoid.area))
             trapezoids.append(trapezoid)
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
-                                                      origin=(0, 0)))
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
-                                                      origin=(0, 0)))
-            trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
-                                                      origin=(0, 0)))
+            if rotate_and_mirror:
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 90,
+                                                          origin=(0, 0)))
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 180,
+                                                          origin=(0, 0)))
+                trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
+                                                          origin=(0, 0)))
 
     return trapezoids
 
