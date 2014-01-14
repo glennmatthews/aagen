@@ -930,9 +930,20 @@ def minimize_line(base_line, validator):
         coords = coords[:-1]
     line2 = line(coords)
 
-    log.debug("Minimized line {0} to {1} and {2}"
-              .format(to_string(base_line), to_string(line1), to_string(line2)))
-    return [line1, line2]
+    if line1.equals(line2):
+        if line1.equals(base_line):
+            log.debug("Line {0} cannot be minimized any further"
+                      .format(to_string(base_line)))
+            return [base_line]
+        else:
+            log.debug("Minimized line {0} to {1}"
+                      .format(to_string(base_line, to_string(line1))))
+            return [line1]
+    else:
+        log.debug("Minimized line {0} to {1} and {2}"
+                  .format(to_string(base_line), to_string(line1),
+                          to_string(line2)))
+        return [line1, line2]
 
 
 # Polygon construction functions
