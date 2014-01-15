@@ -25,7 +25,7 @@ import aagen.geometry
 
 log = logging.getLogger('aagen')
 
-supported_shapes = ['hexagon', 'trapezoid', 'oval']
+supported_shapes = ['hexagon', 'octagon', 'oval', 'trapezoid']
 
 size_list = [500, 900, 1300, 2000, 2700, 3400,
                              4000,       5400,
@@ -87,12 +87,14 @@ def main():
     if args.shape == 'hexagon':
         shape_lists = [aagen.geometry.hexagon_list(size, rotate=False)
                        for size in size_list]
+    elif args.shape == 'octagon':
+        shape_lists = [aagen.geometry.octagon_list(size) for size in size_list]
+    elif args.shape == 'oval':
+        shape_lists = [aagen.geometry.oval_list(size, rotate=False)
+                       for size in size_list]
     elif args.shape == 'trapezoid':
         shape_lists = [aagen.geometry.trapezoid_list(size,
                                                      rotate_and_mirror=False)
-                       for size in size_list]
-    elif args.shape == 'oval':
-        shape_lists = [aagen.geometry.oval_list(size, rotate=False)
                        for size in size_list]
 
     shape_lists_to_map(dungeon_map, shape_lists)
