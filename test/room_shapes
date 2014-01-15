@@ -25,7 +25,8 @@ import aagen.geometry
 
 log = logging.getLogger('aagen')
 
-supported_shapes = ['hexagon', 'octagon', 'oval', 'trapezoid']
+supported_shapes = ['circle', 'hexagon', 'octagon', 'oval', 'trapezoid',
+                    'triangle']
 
 size_list = [500, 900, 1300, 2000, 2700, 3400,
                              4000,       5400,
@@ -84,7 +85,9 @@ def main():
     dungeon_display = DungeonDisplay(dungeon_map)
 
     # Construct demo intersections
-    if args.shape == 'hexagon':
+    if args.shape == 'circle':
+        shape_lists = [aagen.geometry.circle_list(size) for size in size_list]
+    elif args.shape == 'hexagon':
         shape_lists = [aagen.geometry.hexagon_list(size, rotate=False)
                        for size in size_list]
     elif args.shape == 'octagon':
@@ -95,6 +98,9 @@ def main():
     elif args.shape == 'trapezoid':
         shape_lists = [aagen.geometry.trapezoid_list(size,
                                                      rotate_and_mirror=False)
+                       for size in size_list]
+    elif args.shape == 'triangle':
+        shape_lists = [aagen.geometry.triangle_list(size, rotate=False)
                        for size in size_list]
 
     shape_lists_to_map(dungeon_map, shape_lists)

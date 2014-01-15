@@ -1060,6 +1060,46 @@ def circle(area):
     return circle
 
 
+def polygon_circle(area):
+    """Construct a grid-constrained polygon (45-degree angles only)
+    that roughly approximates a circle. Uses the midpoint circle algorithm.
+    """
+    radius = math.sqrt(area / math.pi)
+    grid_radius = 5 * round(radius/5, 0)
+    log.info("Exact radius would be {0}; rounded to {1}"
+             .format(radius, grid_radius))
+    if grid_radius % 10 == 0:
+        # For even radius, center around a grid intersection
+        x0 = y0 = 0
+    else:
+        # For odd radius, center around a grid square
+        x0 = y0 = 5
+    x = grid_radius
+    y = 0
+    error = 10 - x
+    point_list = []
+    while x >= y:
+        point_list.append((x, y))
+        if error < 0:
+            y += 10
+            error += 2 * y + 10
+        else:
+            y += 10
+            x -= 10
+            error += 2 * (y - x + 10)
+    points = [(x + x0, y + y0) for (x, y) in point_list]
+    points += [(y + x0, x + y0) for (x, y) in reversed(point_list)]
+    points += [(-y + x0, x + y0) for (x, y) in point_list]
+    points += [(-x + x0, y + y0) for (x, y) in reversed(point_list)]
+    points += [(-x + x0, -y + y0) for (x, y) in point_list]
+    points += [(-y + x0, -x + y0) for (x, y) in reversed(point_list)]
+    points += [(y + x0, -x + y0) for (x, y) in point_list]
+    points += [(x + x0, -y + y0) for (x, y) in reversed(point_list)]
+    circ = Polygon(points)
+    log.debug("Circle with area {0}: {1}".format(area, to_string(circ)))
+    return circ
+
+
 def circle_list(area):
     return [circle(area)]
 
@@ -1076,16 +1116,18 @@ def isosceles_right_triangle(area):
     return polygon([(0, 0), (size, 0), (0, size)])
 
 
-def triangle_list(area):
+def triangle_list(area, rotate=True):
     """Returns the list of possible right triangles (each orientation)
     with approximately the requested area.
     """
 
     triangle = isosceles_right_triangle(area)
-    return [triangle,
-            shapely.affinity.rotate(triangle, 90),
-            shapely.affinity.rotate(triangle, 180),
-            shapely.affinity.rotate(triangle, 270)]
+    if rotate:
+        return [triangle,
+                shapely.affinity.rotate(triangle, 90),
+                shapely.affinity.rotate(triangle, 180),
+                shapely.affinity.rotate(triangle, 270)]
+    return [triangle]
 
 
 def trapezoid_list(area, rotate_and_mirror=True):
