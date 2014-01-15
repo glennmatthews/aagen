@@ -1161,7 +1161,7 @@ def trapezoid_list(area, rotate_and_mirror=True):
     return trapezoids
 
 
-def oval_list(area):
+def oval_list(area, rotate=True):
     """Construct a list of ovals (actually, capsule shapes) that are
     grid-constrained but have approximately the requested area.
     """
@@ -1196,12 +1196,13 @@ def oval_list(area):
                      point(w + offset, offset).buffer(h/2 - 0.1),
                      box(offset, offset - h/2, offset + w, offset + h/2))
         ovals.append(oval)
-        ovals.append(shapely.affinity.rotate(oval, 90, origin=(0,0)))
+        if rotate:
+            ovals.append(shapely.affinity.rotate(oval, 90, origin=(0,0)))
 
     return ovals
 
 
-def hexagon_list(area):
+def hexagon_list(area, rotate=True):
     """Construct a list of hexagons that are grid-constrained but have
     approximately the requested area.
 
@@ -1234,7 +1235,8 @@ def hexagon_list(area):
                            (h/2 + offset, h), (h/2 + w + offset, h),
                            (h + w + offset, h/2), (h/2 + w + offset, 0)])
         hexagons.append(hexagon)
-        hexagons.append(shapely.affinity.rotate(hexagon, 90, origin=(0, 0)))
+        if rotate:
+            hexagons.append(shapely.affinity.rotate(hexagon, 90, origin=(0, 0)))
 
     return hexagons
 

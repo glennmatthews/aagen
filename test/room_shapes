@@ -14,6 +14,7 @@ import pygame
 import logging
 import traceback
 import argparse
+import math
 
 from aagen.map import DungeonMap, Region, Connection
 from aagen.display import DungeonDisplay
@@ -24,12 +25,23 @@ import aagen.geometry
 
 log = logging.getLogger('aagen')
 
+supported_shapes = ['hexagon', 'trapezoid', 'oval']
+
+size_list = [500, 900, 1300, 2000, 2700, 3400,
+                             4000,       5400,
+                                         7400,
+                                         9400]
+
 parser = argparse.ArgumentParser(
     description="AA Dungeon Generator shape construction test")
 
 parser.add_argument('-v', '--verbose', action='count', default=0,
                     help="""Increase across-the-board verbosity of the program.
                     Repeatable for even more verbosity.""")
+
+parser.add_argument('-s', '--shape', default=supported_shapes[0],
+                    choices=supported_shapes,
+                    help="""Type of shape to draw first""")
 
 def shape_lists_to_map(dungeon_map, shape_lists):
     dungeon_map.__init__()
@@ -39,12 +51,16 @@ def shape_lists_to_map(dungeon_map, shape_lists):
     for shape_list in shape_lists:
         for shape in shape_list:
             region = Region(Region.CHAMBER,
-                            aagen.geometry.translate(shape, x0, y0))
+                            aagen.geometry.translate(shape,
+                                                     x0 - shape.bounds[0],
+                                                     y0 - shape.bounds[1]))
             dungeon_map.add_region(region)
-            x0 += shape.bounds[2] - shape.bounds[0] + 10
+            x0 += 10 * math.ceil((shape.bounds[2] - shape.bounds[0]) / 10)
+            x0 += 10
         x0 = 0
-        y0 += 10 + max([shape.bounds[3] - shape.bounds[1]
-                        for shape in shape_list])
+        y0 += 10
+        y0 += 10 * math.ceil(max([shape.bounds[3] - shape.bounds[1]
+                                  for shape in shape_list]) / 10)
 
 
 def main():
@@ -68,11 +84,17 @@ def main():
     dungeon_display = DungeonDisplay(dungeon_map)
 
     # Construct demo intersections
-    shape_lists = [aagen.geometry.trapezoid_list(size, rotate_and_mirror=False)
-                   for size in [500, 900, 1300, 2000, 2700, 3400,
-                                                4000,       5400,
-                                                            7400,
-                                                            9400]]
+    if args.shape == 'hexagon':
+        shape_lists = [aagen.geometry.hexagon_list(size, rotate=False)
+                       for size in size_list]
+    elif args.shape == 'trapezoid':
+        shape_lists = [aagen.geometry.trapezoid_list(size,
+                                                     rotate_and_mirror=False)
+                       for size in size_list]
+    elif args.shape == 'oval':
+        shape_lists = [aagen.geometry.oval_list(size, rotate=False)
+                       for size in size_list]
+
     shape_lists_to_map(dungeon_map, shape_lists)
     dungeon_map.flush()
 
