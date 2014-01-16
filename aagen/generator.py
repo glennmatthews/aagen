@@ -64,25 +64,33 @@ class DungeonGenerator:
         self.step_number = 0
 
         print("Generating new dungeon!")
-        log.info("Adding initial entrance stairs")
-        stairs_coords = [(0, 0), (0, -20), (10, -20), (10, 0)]
+        print("Adding initial entrance stairs (d4)")
         roll = d4()
-        if True: #roll == 1:
-            pass
-        #elif roll == 2:
-        #    stairs_coords = rotate(stairs_coords, 90)
-        #elif roll == 3:
-        #    stairs_coords = rotate(stairs_coords, 180)
-        #elif roll == 4:
-        #    stairs_coords = rotate(stairs_coords, -90)
+        if roll == 1:
+            stairs_dir = Direction.N
+            stairs_coords = [(10, 0), (0, 0), (0, -20), (10, -20)]
+        elif roll == 2:
+            stairs_dir = Direction.W
+            stairs_coords = [(0, 10), (0, 0), (20, 0), (20, 10)]
+        elif roll == 3:
+            stairs_dir = Direction.S
+            stairs_coords = [(0, 0), (10, 0), (10, 20), (0, 20)]
+        elif roll == 4:
+            stairs_dir = Direction.E
+            stairs_coords = [(0, 0), (0, 10), (-20, 10), (-20, 0)]
+        self.print_roll(roll, "Stairs descend to the {0}"
+                        .format(stairs_dir.name))
         stairs = Region(Region.PASSAGE, stairs_coords)
-        stairs.add_decoration(Decoration.Stairs((5, -10), (10, 20),
-                                                Direction.N))
+        (x, y) = (stairs.polygon.centroid.x,
+                  stairs.polygon.centroid.y)
+        stairs.add_decoration(Decoration.Stairs((x, y),
+                                                (10, 20),
+                                                stairs_dir))
         dungeon_map.add_region(stairs)
 
         stairs_to_room = Connection(Connection.OPEN,
-                                    [stairs_coords[0], stairs_coords[3]],
-                                    stairs, Direction.N)
+                                    [stairs_coords[0], stairs_coords[1]],
+                                    stairs, stairs_dir)
         dungeon_map.add_connection(stairs_to_room)
         log.info("Adding initial random room adjacent to stairs")
         self.generate_room(Region.ROOM, stairs_to_room)
