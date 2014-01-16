@@ -1165,9 +1165,9 @@ def trapezoid_list(area, rotate_and_mirror=True):
         # w1 is larger than w2, so if it's too small we know we're done
         if w1 < 10:
             break
-        if w1 >= 10: # TODO and (2 * w1 >= h):
+        if w1 >= 10 and (2 * w1 >= h):
             # one-sided trapezoid - 8 possible orientations
-            trapezoid = polygon([(0, 0), (w1, 0), (w1 + h, h), (0, h)])
+            trapezoid = polygon([(0, 0), (w1 + h, 0), (w1, h), (0, h)])
             log.debug("one-sided trapezoid: {0}, area {1}"
                       .format(to_string(trapezoid), trapezoid.area))
             trapezoids.append(trapezoid)
@@ -1186,7 +1186,7 @@ def trapezoid_list(area, rotate_and_mirror=True):
                                                           origin=(0, 0)))
                 trapezoids.append(shapely.affinity.rotate(trapezoid, 270,
                                                           origin=(0, 0)))
-        if w2 >= 10: # TODO and (3 * w2) >= h:
+        if w2 >= 10 and (3 * w2) >= h:
             # two-sided trapezoid - 4 possible orientations
             trapezoid = polygon([(0, 0), (h + w2 + h, 0), (h + w2, h), (h, h)])
             log.debug("two-sided trapezoid: {0} area {1}"
