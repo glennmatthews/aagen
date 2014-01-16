@@ -1,0 +1,4 @@
+Seed        Comments
+----------  --------
+937388205   Stairs enter large circular room; another circle at step 10
+1927295110  Stairs west into oval room
