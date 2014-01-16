@@ -256,39 +256,32 @@ class DungeonGenerator:
 
         if roll <= 4:
             self.print_roll(roll, "The door opens into a parallel passage "
-                            "continuing for 30 feet in each direction, "
-                            "or possibly a 10x10 room...")
-            # TODO
+                            "continuing for 30 feet in each direction")
+            # TODO? Might allow for 10x10 rooms as well
+            new_conns = self.generate_parallel_passage(connection)
+            for conn in new_conns:
+                self.extend_passage(conn, 30)
         elif roll <= 8:
             self.print_roll(roll, "A passage continues 30 feet ahead")
             self.extend_passage(connection, 30)
-            return
         elif roll <= 10:
             self.print_roll(roll, "A passage at a 45-degree angle to the left "
                             "or right")
             self.extend_passage(connection, 30,
                                 [connection.direction.rotate(45),
                                  connection.direction.rotate(-45)])
-            return
         elif roll <= 11:
             self.print_roll(roll, "A passage at a 45-degree angle to the right "
                             "or left")
             self.extend_passage(connection, 30,
                                 [connection.direction.rotate(-45),
                                  connection.direction.rotate(45)])
-            return
         elif roll <= 18:
             self.print_roll(roll, "The door opens into a room")
             self.generate_room(Region.ROOM, connection)
-            return
         elif roll <= 20:
             self.print_roll(roll, "The door opens into a chamber")
             self.generate_room(Region.CHAMBER, connection)
-            return
-
-        # TODO
-        log.info("Rerolling...")
-        return self.generate_space_beyond_door(connection)
 
 
     def generate_side_passage(self, connection):
@@ -359,6 +352,27 @@ class DungeonGenerator:
         return conns
 
 
+    def generate_parallel_passage(self, connection):
+        """Construct a passage parallel to the given connection line
+        (i.e., perpendicular to the connection's direction) that may extend
+        in both parallel directions. Returns a list of Connections
+        (with a new Region implicitly shared between them).
+        """
+        base_dir = connection.direction
+        new_dirs = [base_dir.rotate(90), base_dir.rotate(-90)]
+        new_width = self.roll_passage_width()
+
+        (polygon, exit_dict) = aagen.geometry.construct_intersection(
+            connection.line, base_dir, new_dirs, new_width)
+
+        region = Region(Region.PASSAGE, polygon)
+        region.add_connection(connection)
+        conns = [Connection(Connection.OPEN, exit_line, region, exit_dir) for
+                 (exit_dir, exit_line) in exit_dict.items()]
+        self.dungeon_map.add_region(region)
+        return conns
+
+
     def roll_passage_width(self):
         print("Checking passage width...")
 
@@ -377,6 +391,7 @@ class DungeonGenerator:
             self.print_roll(roll, "5 feet wide")
             # TODO - some of our math assumes a 10' minimum...
             #width = 5
+            print("5' width not supported - using 10' instead")
             width = 10
         else:
             self.print_roll(roll, "A special passage!")
