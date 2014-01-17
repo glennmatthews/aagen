@@ -54,6 +54,8 @@ Press `w` to write the current map state to disk as `current.aamap`.
 
 Press `l` to load `current.aamap`, replacing the current map state.
 
+Press `v` to increase the debug verbosity and `q` to decrease it.
+
 Press `ESC` or close the map window to quit the program.
 
 If an error occurs, the error will be reported on your console and the program

@@ -43,18 +43,24 @@ parser.add_argument('-r', '--run-steps', type=int, default=0,
                     help="""Run the given number of generator steps
                     before handing control to the user""")
 
+
+def set_verbosity(verbosity):
+    """Set the overall verbosity of logging"""
+    log_level = {0: logging.ERROR,
+                 1: logging.WARNING,
+                 2: logging.INFO,
+                 3: logging.DEBUG}
+    log.setLevel(log_level.get(verbosity, logging.DEBUG))
+    print("Verbosity set to {0}".format(log.getEffectiveLevel()))
+
+
 def main():
 
     logging.basicConfig()
 
     args = parser.parse_args()
 
-    log_level = {0: logging.ERROR,
-                 1: logging.WARNING,
-                 2: logging.INFO,
-                 3: logging.DEBUG}
-
-    log.setLevel(log_level.get(args.verbose, logging.DEBUG))
+    set_verbosity(args.verbose)
 
     log.info("Running!")
 
@@ -109,6 +115,14 @@ def main():
                     dungeon_map.flush()
                     dungeon_display.draw(verbosity=args.verbose)
                     running = True
+                elif event.key == pygame.K_q:
+                    if args.verbose > 0:
+                        args.verbose -= 1
+                        set_verbosity(args.verbose)
+                elif event.key == pygame.K_v:
+                    if args.verbose < 4:
+                        args.verbose += 1
+                        set_verbosity(args.verbose)
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
                 dungeon_display.draw(verbosity=args.verbose)
