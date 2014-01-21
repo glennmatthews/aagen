@@ -339,6 +339,7 @@ class DungeonGenerator:
                 self.print_roll(roll, "X-junction to the right")
                 dirs = [base_dir, base_dir.rotate(-45), base_dir.rotate(135)]
 
+        # TODO - roll and track width separately for cardinal/diagonal exits
         new_width = self.roll_passage_width()
 
         (polygon, exit_dict) = aagen.geometry.construct_intersection(
@@ -360,7 +361,7 @@ class DungeonGenerator:
         """
         base_dir = connection.direction
         new_dirs = [base_dir.rotate(90), base_dir.rotate(-90)]
-        new_width = self.roll_passage_width()
+        new_width = self.roll_passage_width(new_dirs[0].is_cardinal())
 
         (polygon, exit_dict) = aagen.geometry.construct_intersection(
             connection.line, base_dir, new_dirs, new_width)
@@ -373,7 +374,7 @@ class DungeonGenerator:
         return conns
 
 
-    def roll_passage_width(self):
+    def roll_passage_width(self, cardinal=True):
         print("Checking passage width...")
 
         roll = d20()
@@ -388,15 +389,19 @@ class DungeonGenerator:
             self.print_roll(roll, "30 feet wide")
             width = 30
         elif roll <= 18:
-            self.print_roll(roll, "5 feet wide")
-            # TODO - some of our math assumes a 10' minimum...
-            #width = 5
-            print("5' width not supported - using 10' instead")
-            width = 10
+            if cardinal:
+                self.print_roll(roll, "5 feet wide (cardinal orientation only)")
+                # TODO - some of our math assumes a 10' minimum...
+                #width = 5
+                print("5' width not supported - using 10' instead")
+                width = 10
+            else:
+                self.print_roll(roll, "10 feet wide for a diagonal passage")
+                width = 10
         else:
             self.print_roll(roll, "A special passage!")
             # TODO
-            return self.roll_passage_width()
+            return self.roll_passage_width(cardinal)
 
         return width
 
@@ -430,7 +435,7 @@ class DungeonGenerator:
             self.print_roll(roll, "It turns 135 degrees to the right")
             new_dir = base_dir.rotate(-135)
 
-        width = self.roll_passage_width()
+        width = self.roll_passage_width(new_dir.is_cardinal())
 
         log.info("Passage turns from {0} to {1} and becomes {2} wide"
                  .format(base_dir, new_dir, width))
@@ -761,7 +766,7 @@ class DungeonGenerator:
         if exit_kind == Connection.DOOR:
             width = 10
         elif exit_kind == Connection.ARCH:
-            width = self.roll_passage_width()
+            width = self.roll_passage_width(exit_dir.is_cardinal())
         else:
             raise RuntimeError("Not sure how to generate a room exit as {0}"
                                .format(exit_kind))
