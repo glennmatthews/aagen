@@ -56,8 +56,8 @@ def shape_lists_to_map(dungeon_map, shape_lists):
         for shape in shape_list:
             region = Region(Region.CHAMBER,
                             aagen.geometry.translate(shape,
-                                                     x0 - shape.bounds[0],
-                                                     y0 - shape.bounds[1]))
+                                                     x0,
+                                                     y0))
             dungeon_map.add_region(region)
             if add_exits:
                 candidates = dungeon_map.find_options_for_connection(
@@ -73,12 +73,12 @@ def shape_lists_to_map(dungeon_map, shape_lists):
                     region.add_connection(conn)
                     dungeon_map.add_connection(conn)
 
-            x0 += 10 * math.ceil((shape.bounds[2] - shape.bounds[0]) / 10)
-            x0 += 10
-        x0 = 0
-        y0 += 10
-        y0 += 10 * math.ceil(max([shape.bounds[3] - shape.bounds[1]
-                                  for shape in shape_list]) / 10)
+            y0 += 10 * math.ceil((shape.bounds[3] - shape.bounds[1]) / 10)
+            y0 += 10
+        y0 = 0
+        x0 += 10
+        x0 += 10 * math.ceil((max([shape.bounds[2] - shape.bounds[0]
+                                  for shape in shape_list]) + 5) / 10)
 
 
 def main():
