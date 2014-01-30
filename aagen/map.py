@@ -318,13 +318,13 @@ class DungeonMap:
 
 
     def find_options_for_connection(self, width, region, direction,
-                                    new_only=True, allow_rotation=False):
+                                    new_only=True, allow_rotation=True):
         """Find valid positional options (if any) for placing a Connection
         of the given size along the given edge of the given region).
         If new_only is set then only positions leading to new (unmapped) space
         will be considered as valid.
-        If allow_rotation is set then connection options may be rotated by
-        +/- 45 degrees if that makes for a better fit.
+        If allow_rotation is set then also consider connection options
+        that are rotated by +/- 45 degrees if that makes for a better fit.
         Returns a list of CandidateConnections."""
 
         log.info("Finding options for a connection (width {0}) adjacent to "
@@ -341,16 +341,6 @@ class DungeonMap:
                           .format(to_string(segment)))
             valid = True
             if aagen.geometry.grid_aligned(segment, direction):
-                conn_poly = aagen.geometry.polygon()
-            elif (allow_rotation and
-                  aagen.geometry.grid_aligned(segment,
-                                              direction.rotate(45))):
-                exit_dir = direction.rotate(45)
-                conn_poly = aagen.geometry.polygon()
-            elif (allow_rotation and
-                  aagen.geometry.grid_aligned(segment,
-                                              direction.rotate(-45))):
-                exit_dir = direction.rotate(-45)
                 conn_poly = aagen.geometry.polygon()
             else:
                 (segment, conn_poly) = aagen.geometry.loft_to_grid(
@@ -393,6 +383,13 @@ class DungeonMap:
         log.info("{0} candidate positions were identified after inspecting "
                  "{1} possibilities"
                  .format(len(candidates), len(segments)))
+
+        if allow_rotation:
+            candidates += self.find_options_for_connection(
+                width, region, direction.rotate(45), new_only, False)
+            candidates += self.find_options_for_connection(
+                width, region, direction.rotate(-45), new_only, False)
+
         return candidates
 
 
