@@ -33,6 +33,9 @@ size_list = [500, 900, 1300, 2000, 2700, 3400,
                                          7400,
                                          9400]
 
+add_exits = False
+exit_dir = Direction.N
+
 parser = argparse.ArgumentParser(
     description="AA Dungeon Generator shape construction test")
 
@@ -56,6 +59,20 @@ def shape_lists_to_map(dungeon_map, shape_lists):
                                                      x0 - shape.bounds[0],
                                                      y0 - shape.bounds[1]))
             dungeon_map.add_region(region)
+            if add_exits:
+                candidates = dungeon_map.find_options_for_connection(
+                    10, region, exit_dir, allow_rotation=False)
+                for candidate in candidates:
+                    # For now, do not distort the shape of the base geometry as
+                    # would be done in a real map - let the connection "float".
+                    #region.polygon = aagen.geometry.union(region.polygon,
+                    #                                      candidate.polygon)
+                    #dungeon_map.refresh_conglomerate()
+                    conn = Connection(Connection.ONEWAY, candidate.line, region,
+                                      exit_dir)
+                    region.add_connection(conn)
+                    dungeon_map.add_connection(conn)
+
             x0 += 10 * math.ceil((shape.bounds[2] - shape.bounds[0]) / 10)
             x0 += 10
         x0 = 0
@@ -65,6 +82,7 @@ def shape_lists_to_map(dungeon_map, shape_lists):
 
 
 def main():
+    global exit_dir, add_exits
     logging.basicConfig()
 
     args = parser.parse_args()
@@ -103,13 +121,19 @@ def main():
         shape_lists = [aagen.geometry.triangle_list(size, rotate=False)
                        for size in size_list]
 
-    shape_lists_to_map(dungeon_map, shape_lists)
+    num_shapes = 5
+
+    shape_lists_to_map(dungeon_map, shape_lists[:num_shapes])
     dungeon_map.flush()
 
     dungeon_display.draw(verbosity=args.verbose)
 
     done = False
     dirty = False
+
+    print("Press -/= to decrease/increase the range of room sizes shown")
+    print("Press E to toggle exit construction")
+    print("When exit construction is on, press L/R to change exit direction")
 
     while not done:
         clock.tick(10)
@@ -120,6 +144,25 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     done = True
+                elif event.key == pygame.K_EQUALS:
+                    if num_shapes < len(shape_lists):
+                        num_shapes += 1
+                        dirty = True
+                elif event.key == pygame.K_MINUS:
+                    if num_shapes > 1:
+                        num_shapes -= 1
+                        dirty = True
+                elif event.key == pygame.K_e:
+                    add_exits = not add_exits
+                    dirty = True
+                elif event.key == pygame.K_l:
+                    if add_exits:
+                        exit_dir = exit_dir.rotate(45)
+                        dirty = True
+                elif event.key == pygame.K_r:
+                    if add_exits:
+                        exit_dir = exit_dir.rotate(-45)
+                        dirty = True
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
                 dungeon_display.draw(verbosity=args.verbose)
@@ -127,6 +170,13 @@ def main():
                 (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
                 object = dungeon_map.object_at((click_x, click_y))
                 print(object)
+
+        if dirty:
+            shape_lists_to_map(dungeon_map, shape_lists[:num_shapes])
+            dungeon_map.flush()
+
+            dungeon_display.draw(verbosity=args.verbose)
+            dirty = False
 
     log.info("Done!")
 
