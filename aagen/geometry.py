@@ -668,7 +668,7 @@ def find_edge_segments(poly, width, direction):
             # Make sure width matches "size" and height not too much
             w = intersection.bounds[2] - intersection.bounds[0]
             h = intersection.bounds[3] - intersection.bounds[1]
-            return (math.fabs(w - size) < 0.1 and h <= size)
+            return (math.fabs(w - size) < 0.1 and h < size)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
                 return (option_a.bounds[3] > option_b.bounds[3])
@@ -686,7 +686,7 @@ def find_edge_segments(poly, width, direction):
             # Make sure height matches "size" and width not too much
             w = intersection.bounds[2] - intersection.bounds[0]
             h = intersection.bounds[3] - intersection.bounds[1]
-            return (math.fabs(h - size) < 0.1 and w <= size)
+            return (math.fabs(h - size) < 0.1 and w < size)
         if direction[0] < 0: #west
             def prefer(option_a, option_b):
                 return (option_a.bounds[0] < option_b.bounds[0])
@@ -724,7 +724,7 @@ def find_edge_segments(poly, width, direction):
         def check_size(intersection, size):
             w = intersection.bounds[2] - intersection.bounds[0]
             h = intersection.bounds[3] - intersection.bounds[1]
-            return (math.fabs(w + h - size) < 0.1)
+            return (h > 0 and w > 0 and math.fabs(w + h - size) < 0.1)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
                 return (option_a.bounds[1] > option_b.bounds[1])
@@ -762,7 +762,7 @@ def find_edge_segments(poly, width, direction):
         def check_size(intersection, size):
             w = intersection.bounds[2] - intersection.bounds[0]
             h = intersection.bounds[3] - intersection.bounds[1]
-            return (math.fabs(w + h - size) < 0.1)
+            return (h > 0 and w > 0 and math.fabs(w + h - size) < 0.1)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
                 return (option_a.bounds[1] > option_b.bounds[1])
