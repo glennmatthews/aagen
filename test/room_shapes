@@ -73,7 +73,7 @@ def shape_lists_to_map(dungeon_map, shape_lists):
                     region.add_connection(conn)
                     dungeon_map.add_connection(conn)
 
-            y0 += 10 * math.ceil((shape.bounds[3] - shape.bounds[1]) / 10)
+            y0 += 10 * math.ceil((shape.bounds[3] - shape.bounds[1] + 5) / 10)
             y0 += 10
         y0 = 0
         x0 += 10
