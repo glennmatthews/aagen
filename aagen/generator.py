@@ -57,11 +57,11 @@ class DungeonGenerator:
 
         log.info("Initialized {0}".format(self))
 
+        self.step_number = 0
+
         if len(self.dungeon_map.regions) != 0:
             print("Using existing map.")
             return
-
-        self.step_number = 0
 
         print("Generating new dungeon!")
         print("Adding initial entrance stairs (d4)")
