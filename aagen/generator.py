@@ -487,6 +487,7 @@ class DungeonGenerator:
             exit_base_dir = connection.direction
             # TODO use actual adjacency direction?
             for i in range(0, num_exits):
+                print("Generating exit #{0}".format(i+1))
                 self.generate_room_exit(new_region, exit_kind, exit_base_dir)
         else:
             print("No normal exits were generated - check for secret doors")
