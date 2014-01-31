@@ -104,13 +104,24 @@ def translate(shape, dx_or_dir, dy_or_dist):
     the given (direction, distance) and return the
     resulting new shape.
     """
+    assert shape.is_valid
     if isinstance(dx_or_dir, Direction):
         dx = dx_or_dir.vector[0] * dy_or_dist
         dy = dx_or_dir.vector[1] * dy_or_dist
     else:
         dx = dx_or_dir
         dy = dy_or_dist
-    return shapely.affinity.translate(shape, dx, dy)
+    new_shape = shapely.affinity.translate(shape, dx, dy)
+    if not new_shape.is_valid and isinstance(new_shape, Polygon):
+        log.warning("Polygon {0} no longer valid after translating ({1}, {2})??"
+                    .format(to_string(shape), dx, dy))
+        new_shape = new_shape.buffer(0)
+    assert new_shape.is_valid, (
+        "Shape {0} was valid, but after translating by ({1}, {2}) the new "
+        "shape {3} is not: {4}"
+        .format(to_string(shape), dx, dy, to_string(new_shape),
+                shapely.validation.explain_validity(new_shape)))
+    return new_shape
 
 
 def rotate(geometry, angle):
@@ -1234,8 +1245,8 @@ def oval_list(area, rotate=True):
             offset = 0
         else:
             offset = 5
-        oval = union(point(offset, offset).buffer(h/2 - 0.1),
-                     point(w + offset, offset).buffer(h/2 - 0.1),
+        oval = union(point(offset + 0.1, offset).buffer(h/2),
+                     point(w + offset - 0.1, offset).buffer(h/2),
                      box(offset, offset - h/2, offset + w, offset + h/2))
         ovals.append(oval)
         if rotate:
