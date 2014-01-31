@@ -204,7 +204,7 @@ def construct_intersection(base_line, base_dir, exit_dir_list, exit_width=None):
             exit_fwd = exit_dir
         else:
             raise RuntimeError("Unexpected angle between {0} and {1}?!"
-                               .format(base_dir.name, exit_dir.name))
+                               .format(base_dir, exit_dir))
 
     new_exits = {}
 
@@ -483,9 +483,8 @@ def endpoints_by_direction(line, dir):
     elif weight < 0:
         return (point2, point1)
     else:
-        raise RuntimeError("Unable to decide between {0} and {1} in {2}"
-                           .format(to_string(point1), to_string(point2),
-                                   dir.name))
+        raise RuntimeError("Unable to decide between {0} and {1} to the {2}"
+                           .format(to_string(point1), to_string(point2), dir))
 
 
 def point_sweep(point, dx_or_dir, dy_or_dist):
@@ -511,8 +510,8 @@ def sweep(base_line, dir, distance, base_dir=None, width=None):
 
     poly2 = loft(line1, line2)
 
-    log.debug("Swept polygon from {0} in {1} by {2}: {3}"
-              .format(to_string(line1), dir.name, distance,
+    log.debug("Swept polygon from {0} to the {1} by {2}: {3}"
+              .format(to_string(line1), dir, distance,
                       to_string(poly2)))
     return (poly2, line2)
 

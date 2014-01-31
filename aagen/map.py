@@ -674,7 +674,7 @@ class CandidateConnection(MapElement):
     def __repr__(self):
         return ("<CandidateConnection {0}: line {1}, poly {2}, dir {3}>"
                 .format(self.id, to_string(self.line), to_string(self.polygon),
-                        self.dir.name))
+                        self.dir))
 
 
 class Connection(MapElement):

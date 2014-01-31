@@ -79,7 +79,7 @@ class DungeonGenerator:
             stairs_dir = Direction.E
             stairs_coords = [(0, 0), (0, 10), (-20, 10), (-20, 0)]
         self.print_roll(roll, "Stairs descend to the {0}"
-                        .format(stairs_dir.name))
+                        .format(stairs_dir))
         stairs = Region(Region.PASSAGE, stairs_coords)
         (x, y) = (stairs.polygon.centroid.x,
                   stairs.polygon.centroid.y)
@@ -181,13 +181,13 @@ class DungeonGenerator:
             roll = d20()
             if roll <= 5:
                 self.print_roll(roll, "A secret door to the {0}"
-                                .format(direction.name))
+                                .format(direction))
                 # TODO - for base_dir may need to reduce exit_line size to 10'
                 conn = Connection(Connection.SECRET, exit_dict[direction],
                                   region, direction)
             else:
                 self.print_roll(roll, "No secret door to the {0}"
-                                .format(direction.name))
+                                .format(direction))
 
         self.dungeon_map.add_region(region)
 
@@ -843,19 +843,19 @@ class DungeonGenerator:
             if roll <= 7:
                 direction = base_direction
                 self.print_roll(roll, "Opposite the entrance ({0})"
-                                .format(direction.name))
+                                .format(direction))
             elif roll <= 12:
                 direction = base_direction.rotate(90)
                 self.print_roll(roll, "To the left of the entrance ({0})"
-                                .format(direction.name))
+                                .format(direction))
             elif roll <= 17:
                 direction = base_direction.rotate(-90)
                 self.print_roll(roll, "To the right of the entrance ({0})"
-                                .format(direction.name))
+                                .format(direction))
             else:
                 direction = base_direction.rotate(180)
                 self.print_roll(roll, "On the same side as the entrance ({0})"
-                                .format(direction.name))
+                                .format(direction))
         else:
             # Exits are always cardinally oriented...
             # Numbers below are picked arbitrarily to try and preserve the
@@ -863,19 +863,19 @@ class DungeonGenerator:
             if roll <= 6:
                 direction = base_direction.rotate(45)
                 self.print_roll(roll, "Forward and left ({0})"
-                                .format(direction.name))
+                                .format(direction))
             elif roll <= 12:
                 direction = base_direction.rotate(-45)
                 self.print_roll(roll, "Forward and right ({0})"
-                                .format(direction.name))
+                                .format(direction))
             elif roll <= 16:
                 direction = base_direction.rotate(135)
                 self.print_roll(roll, "Back and left ({0})"
-                                .format(direction.name))
+                                .format(direction))
             else:
                 direction = base_direction.rotate(-135)
                 self.print_roll(roll, "Back and right ({0})"
-                                .format(direction.name))
+                                .format(direction))
 
         log.info("Exit direction: {0}".format(direction))
 
@@ -888,21 +888,21 @@ class DungeonGenerator:
 
         if roll <= 16:
             self.print_roll(roll, "The passage goes straight {0}"
-                            .format(base_direction.name))
+                            .format(base_direction))
             return [base_direction]
         elif roll <= 18:
             left = base_direction.rotate(45)
             right = base_direction.rotate(-45)
             self.print_roll(roll, "The passage goes 45 degrees left ({0}), or "
                             "if that doesn't work, 45 degrees right ({1})"
-                            .format(left.name, right.name))
+                            .format(left, right))
             return [left, right]
         else:
             left = base_direction.rotate(45)
             right = base_direction.rotate(-45)
             self.print_roll(roll, "The passage goes 45 degrees right ({0}), or "
                             "if that doesn't work, 45 degrees left ({1})"
-                            .format(right.name, left.name))
+                            .format(right, left))
             return [right, left]
 
 

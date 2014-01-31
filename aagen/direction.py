@@ -87,7 +87,7 @@ class Direction:
 
 
     def __repr__(self):
-        return("<Direction: {name}>".format(name=self.name))
+        return(self.name)
 
 
     def __eq__(self, other):
