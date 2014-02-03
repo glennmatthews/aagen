@@ -889,8 +889,9 @@ def trim(shape, trimmer, adjacent_shape):
 
 def minimize_line(base_line, validator):
     """Trim the given line from both ends to the minimal line(s) that
-    satisfy the given validator function. Returns a list of 0 or 2
-    lines that satisfy this criteria.
+    satisfy the given validator function. If the base line does not satisfy
+    the validator, returns a list of this line alone; otherwise, returns
+    a list of 1 or 2 sub-segments that satisfy this criteria.
 
     For example:
 
@@ -910,7 +911,7 @@ def minimize_line(base_line, validator):
     if not validator(base_line):
         log.info("Base line {0} does not satisfy validator"
                  .format(to_string(base_line)))
-        return []
+        return [base_line]
 
     # First line: delete from end, then from beginning
     coords = list(base_line.coords)
