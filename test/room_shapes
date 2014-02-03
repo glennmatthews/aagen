@@ -47,7 +47,7 @@ parser.add_argument('-s', '--shape', default=supported_shapes[0],
                     choices=supported_shapes,
                     help="""Type of shape to draw first""")
 
-def shape_lists_to_map(dungeon_map, shape_lists):
+def shape_lists_to_map(dungeon_map, shape_lists, exit_width):
     dungeon_map.__init__()
     x0 = 0
     y0 = 0
@@ -61,7 +61,7 @@ def shape_lists_to_map(dungeon_map, shape_lists):
             dungeon_map.add_region(region)
             if add_exits:
                 candidates = dungeon_map.find_options_for_connection(
-                    10, region, exit_dir, allow_rotation=False)
+                    exit_width, region, exit_dir, allow_rotation=False)
                 for candidate in candidates:
                     # For now, do not distort the shape of the base geometry as
                     # would be done in a real map - let the connection "float".
@@ -122,8 +122,9 @@ def main():
                        for size in size_list]
 
     num_shapes = 5
+    exit_width = 10
 
-    shape_lists_to_map(dungeon_map, shape_lists[:num_shapes])
+    shape_lists_to_map(dungeon_map, shape_lists[:num_shapes], exit_width)
     dungeon_map.flush()
 
     dungeon_display.draw(verbosity=args.verbose)
@@ -163,6 +164,10 @@ def main():
                     if add_exits:
                         exit_dir = exit_dir.rotate(-45)
                         dirty = True
+                elif event.key == pygame.K_w:
+                    if add_exits:
+                        exit_width += 10
+                        dirty = True
             elif event.type == pygame.VIDEORESIZE:
                 dungeon_display.resize_display((event.w, event.h))
                 dungeon_display.draw(verbosity=args.verbose)
@@ -172,7 +177,8 @@ def main():
                 print(object)
 
         if dirty:
-            shape_lists_to_map(dungeon_map, shape_lists[:num_shapes])
+            shape_lists_to_map(dungeon_map, shape_lists[:num_shapes],
+                               exit_width)
             dungeon_map.flush()
 
             dungeon_display.draw(verbosity=args.verbose)
