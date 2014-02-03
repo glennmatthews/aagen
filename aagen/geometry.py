@@ -1057,10 +1057,21 @@ def circle(area):
     """
     radius = math.sqrt(area / math.pi)
     log.info("Exact radius would be {0}".format(radius))
-    # Round to the nearest multiple of 5 feet
-    radius = 5 * round(radius/5, 0)
-    log.info("Rounded radius to {0}".format(radius))
-    if radius % 10 == 0:
+
+    # Constrain radius to grid in cardinal direction
+    cardinal_radius = 5 * round(radius/5, 0)
+    # Constrain radius to grid in diagonal direction
+    diagonal_radius = 7 * round(radius/7, 0)
+    # Pick whichever one is closer to ideal
+    if (math.fabs(radius - diagonal_radius) <
+        math.fabs(radius - cardinal_radius)):
+        radius = diagonal_radius
+    else:
+        radius = cardinal_radius
+    log.info("Rounded radius to {0} or {1} --> chose {2}"
+             .format(cardinal_radius, diagonal_radius, radius))
+
+    if radius % 10 == 0 or radius % 14 == 0:
         # For even radius, center around a grid intersection
         circle = Point(0, 0).buffer(radius - 0.1)
     else:
