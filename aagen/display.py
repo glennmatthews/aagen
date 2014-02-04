@@ -130,6 +130,13 @@ class DungeonDisplay:
         return map_coords
 
 
+    def draw_lines(self, coords, color=None, closed=False, width=2):
+        coords = self.map_to_screen(coords)
+        if color is None:
+            color = (0, 0, 0)
+        pygame.draw.lines(self.surface, color, closed, coords, width)
+
+
     def draw_background(self, verbosity=0):
         """Draw the parts of the dungeon that underlay the grid"""
         log.debug("Drawing background")
@@ -222,8 +229,7 @@ class DungeonDisplay:
             color = (0, 0, 0) if not region.tentative else (0, 255, 0)
             coords_list = region.get_wall_coords()
             for coords in coords_list:
-                coords = self.map_to_screen(coords)
-                pygame.draw.lines(self.surface, color, False, coords, 2)
+                self.draw_lines(coords, color)
 
         for conn in self.dungeon_map.connections:
             centroid = self.map_to_screen((conn.line.centroid.x,
@@ -248,8 +254,7 @@ class DungeonDisplay:
                     pygame.draw.polygon(self.surface, door_color,
                                         self.map_to_screen(line.coords))
             for line in conn.draw_lines:
-                pygame.draw.lines(self.surface, color, False,
-                                  self.map_to_screen(line.coords), 2)
+                self.draw_lines(line.coords, color)
 
         for dec in self.dungeon_map.decorations:
             if dec.kind == Decoration.STAIRS:
