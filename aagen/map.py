@@ -342,20 +342,24 @@ class DungeonMap:
             valid = True
             if aagen.geometry.grid_aligned(segment, direction):
                 conn_poly = aagen.geometry.polygon()
+            elif Direction.normal_to(segment).angle_from(direction) == 90:
+                log.debug("Invalid: perpendicular to target direction")
+                valid = False
             else:
                 (segment, conn_poly) = aagen.geometry.loft_to_grid(
                     segment, direction, width)
                 log.debug("segment: {0}, conn_poly: {1}"
                           .format(to_string(segment), to_string(conn_poly)))
 
-            # Make sure the extension doesn't overflow into existing space,
-            # as can happen when there is a diagonal passage nearby:
-            if aagen.geometry.intersect(
-                    conn_poly,
-                    aagen.geometry.differ(self.conglomerate_polygon,
-                                          region.polygon)).area > 0:
-                log.debug("Overflows into existing space - invalid")
-                valid = False
+            if valid:
+                # Make sure the extension doesn't overflow into existing space,
+                # as can happen when there is a diagonal passage nearby:
+                if aagen.geometry.intersect(
+                        conn_poly,
+                        aagen.geometry.differ(self.conglomerate_polygon,
+                                              region.polygon)).area > 0:
+                    log.debug("Overflows into existing space - invalid")
+                    valid = False
 
             if valid:
                 # Make sure it doesn't intersect any existing conns
