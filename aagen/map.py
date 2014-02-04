@@ -421,6 +421,11 @@ class DungeonMap:
 
             edges = aagen.geometry.find_edge_segments(polygon, width,
                                                       direction.rotate(180))
+            if not edges:
+                edges = (aagen.geometry.find_edge_segments(
+                    polygon, width, direction.rotate(135)) +
+                         aagen.geometry.find_edge_segments(
+                    polygon, width, direction.rotate(-135)))
 
             for edge in edges:
                 if aagen.geometry.grid_aligned(edge, direction):
