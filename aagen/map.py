@@ -527,6 +527,48 @@ class DungeonMap:
                                 amount_truncated, shared_walls)
 
 
+    def construct_intersection(self, connection, base_dir, exit_dir_list,
+                               exit_width, exit_helper=None):
+        """Call aagen.geometry.construct_intersection() to construct a
+        candidate intersection, then do the validation necessary to make it
+        actually work with the existing map.
+
+        Returns (region, [conn1, conn2, ...])
+        """
+        (polygon, exit_dict) = aagen.geometry.construct_intersection(
+            connection.line, base_dir, exit_dir_list, exit_width)
+
+        candidate = self.try_region_as_candidate(polygon, connection)
+
+        if not candidate:
+            log.error("No valid candidate for intersection") # TODO
+            return (None, []) # TODO
+
+        region = Region(Region.PASSAGE, candidate.polygon)
+        region.add_connection(connection)
+
+        if exit_helper is None:
+            def exit_helper(exit_dir, exit_line, region):
+                if not (self.conglomerate_polygon.boundary.contains(exit_line)
+                        or self.conglomerate_polygon.boundary.overlaps(exit_line)):
+                    return Connection(Connection.OPEN, exit_line, region,
+                                      exit_dir)
+                return None
+
+        conns = []
+        for (exit_dir, exit_line) in exit_dict.items():
+            # Check for trimming
+            if not region.polygon.boundary.contains(exit_line):
+                continue
+            conn = exit_helper(exit_dir, exit_line, region)
+            if conn:
+                conns.append(conn)
+
+        self.add_region(region)
+
+        return (region, conns)
+
+
 class MapElement(object):
     """Abstract parent class for any object placed onto the DungeonMap"""
 

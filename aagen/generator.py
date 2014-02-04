@@ -131,7 +131,8 @@ class DungeonGenerator:
         elif roll <= 13:
             self.print_roll(roll, "Passage turns then continues 30 feet")
             new_conn = self.turn_passage(connection)
-            self.extend_passage(new_conn, 30)
+            if new_conn:
+                self.extend_passage(new_conn, 30)
             return
         elif roll <= 16:
             self.print_roll(roll, "Passage enters a chamber")
@@ -172,24 +173,21 @@ class DungeonGenerator:
         base_dir = connection.direction
         exit_dirs = [base_dir, base_dir.rotate(90), base_dir.rotate(-90)]
 
-        (polygon, exit_dict) = aagen.geometry.construct_intersection(
-            connection.line, base_dir, exit_dirs, 10)
-        region = Region(Region.PASSAGE, polygon)
-        region.add_connection(connection)
-
-        for direction in exit_dirs:
+        def exit_helper(direction, exit_line, region):
             roll = d20()
             if roll <= 5:
                 self.print_roll(roll, "A secret door to the {0}"
                                 .format(direction))
                 # TODO - for base_dir may need to reduce exit_line size to 10'
-                conn = Connection(Connection.SECRET, exit_dict[direction],
+                return Connection(Connection.SECRET, exit_line,
                                   region, direction)
             else:
                 self.print_roll(roll, "No secret door to the {0}"
                                 .format(direction))
+                return None
 
-        self.dungeon_map.add_region(region)
+        (region, conns) = self.dungeon_map.construct_intersection(
+            connection, base_dir, exit_dirs, 10, exit_helper)
 
 
     def generate_door_in_passage(self, connection):
@@ -225,26 +223,23 @@ class DungeonGenerator:
                 self.print_roll(roll, "No more doors")
                 break
 
-        (polygon, exit_dict) = aagen.geometry.construct_intersection(
-            connection.line, base_dir, exit_dirs, 10)
-        region = Region(Region.PASSAGE, polygon)
-        region.add_connection(connection)
-
-        forward_conn = None
-        for (exit_dir, exit_line) in exit_dict.items():
+        def exit_helper(exit_dir, exit_line, region):
             # If an "ahead" door is not generated, passage continues
             if exit_dir == base_dir and not door_ahead:
-                conn = Connection(Connection.OPEN, exit_line, region, exit_dir)
-                forward_conn = conn
+                return Connection(Connection.OPEN, exit_line, region, exit_dir)
             else:
                 # TODO - need to reduce exit_line size to 10' if passage
                 # was wider than 10' to begin with.
-                conn = Connection(Connection.DOOR, exit_line, region, exit_dir)
+                return Connection(Connection.DOOR, exit_line, region, exit_dir)
 
-        self.dungeon_map.add_region(region)
+        (region, conns) = self.dungeon_map.construct_intersection(
+            connection, base_dir, exit_dirs, 10, exit_helper)
+
         # If an "ahead" door is not generated, passage continues
-        if forward_conn:
-            self.extend_passage(forward_conn, 30)
+        if not door_ahead:
+            for conn in conns:
+                if conn.direction == base_dir:
+                    self.extend_passage(conn, 30)
 
 
     def generate_space_beyond_door(self, connection):
@@ -342,14 +337,8 @@ class DungeonGenerator:
         # TODO - roll and track width separately for cardinal/diagonal exits
         new_width = self.roll_passage_width()
 
-        (polygon, exit_dict) = aagen.geometry.construct_intersection(
-            connection.line, base_dir, dirs, new_width)
-
-        region = Region(Region.PASSAGE, polygon)
-        region.add_connection(connection)
-        conns = [Connection(Connection.OPEN, exit_line, region, exit_dir) for
-                 (exit_dir, exit_line) in exit_dict.items()]
-        self.dungeon_map.add_region(region)
+        (region, conns) = self.dungeon_map.construct_intersection(
+            connection, base_dir, dirs, new_width)
         return conns
 
 
@@ -363,14 +352,8 @@ class DungeonGenerator:
         new_dirs = [base_dir.rotate(90), base_dir.rotate(-90)]
         new_width = self.roll_passage_width(new_dirs[0].is_cardinal())
 
-        (polygon, exit_dict) = aagen.geometry.construct_intersection(
-            connection.line, base_dir, new_dirs, new_width)
-
-        region = Region(Region.PASSAGE, polygon)
-        region.add_connection(connection)
-        conns = [Connection(Connection.OPEN, exit_line, region, exit_dir) for
-                 (exit_dir, exit_line) in exit_dict.items()]
-        self.dungeon_map.add_region(region)
+        (region, conns) = self.dungeon_map.construct_intersection(
+            connection, base_dir, new_dirs, new_width)
         return conns
 
 
@@ -439,16 +422,13 @@ class DungeonGenerator:
 
         log.info("Passage turns from {0} to {1} and becomes {2} wide"
                  .format(base_dir, new_dir, width))
-        (poly, exit_dict) = aagen.geometry.construct_intersection(
-            connection.line, base_dir, [new_dir], width)
-        new_line = exit_dict[new_dir]
+        (region, conns) = self.dungeon_map.construct_intersection(
+            connection, base_dir, [new_dir], width)
 
-        if poly.area > 0:
-            region = Region(Region.PASSAGE, poly)
-            region.add_connection(connection)
-            new_conn = Connection(Connection.OPEN, new_line, region, new_dir)
-            self.dungeon_map.add_region(region)
-            return new_conn
+        if region:
+            if len(conns) > 0:
+                return conns[0]
+            return None
         else:
             log.warning("Corner is already valid!")
             connection.direction = new_dir
@@ -930,6 +910,7 @@ class DungeonGenerator:
             while length > 0:
                 for direction in possible_directions:
                     if direction != connection.direction:
+                        # TODO - map.construct_intersection() instead?
                         (fixup_poly, exit_dict) = (
                             aagen.geometry.construct_intersection(
                                 connection.line, connection.direction,
