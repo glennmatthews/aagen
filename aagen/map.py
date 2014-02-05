@@ -533,7 +533,16 @@ class DungeonMap:
         candidate intersection, then do the validation necessary to make it
         actually work with the existing map.
 
-        Returns (region, [conn1, conn2, ...])
+        By default, constructs an OPEN connection at each exit from the
+        intersection. If you want more nuanced behavior, you can pass an
+        exit_helper function which has the following signature:
+
+        def exit_helper(exit_dir, exit_line, region)
+
+        The exit helper function will be called for each possible exit,
+        and can return either an appropriately constructed Connection or None.
+
+        Returns (region, [new_conn1, new_conn2, ...])
         """
         (polygon, exit_dict) = aagen.geometry.construct_intersection(
             connection.line, base_dir, exit_dir_list, exit_width)
@@ -548,12 +557,14 @@ class DungeonMap:
         region.add_connection(connection)
 
         if exit_helper is None:
+            # Default helper function
             def exit_helper(exit_dir, exit_line, region):
-                if not (self.conglomerate_polygon.boundary.contains(exit_line)
-                        or self.conglomerate_polygon.boundary.overlaps(exit_line)):
-                    return Connection(Connection.OPEN, exit_line, region,
-                                      exit_dir)
-                return None
+                # Don't construct a connection if it would enter mapped space.
+                if (self.conglomerate_polygon.boundary.contains(exit_line) or
+                    self.conglomerate_polygon.boundary.overlaps(exit_line)):
+                    return None
+                return Connection(Connection.OPEN, exit_line, region,
+                                  exit_dir)
 
         conns = []
         for (exit_dir, exit_line) in exit_dict.items():
