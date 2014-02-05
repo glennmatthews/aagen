@@ -568,12 +568,26 @@ class DungeonMap:
 
         conns = []
         for (exit_dir, exit_line) in exit_dict.items():
+            valid = True
             # Check for trimming
             if not region.polygon.boundary.contains(exit_line):
-                continue
-            conn = exit_helper(exit_dir, exit_line, region)
-            if conn:
-                conns.append(conn)
+                log.debug("Exit line {0} trimmed away from region {1}"
+                          .format(to_string(exit_line),
+                                  to_string(region.polygon)))
+                valid = False
+            # Check for collision with existing connections
+            if valid:
+                for conn in self.connections:
+                    if (aagen.geometry.intersect(conn.line, exit_line)
+                        .length > 0):
+                        log.debug("Exit line {0} conflicts with existing {1}"
+                                  .format(to_string(exit_line), conn))
+                        valid = False
+                        break
+            if valid:
+                conn = exit_helper(exit_dir, exit_line, region)
+                if conn:
+                    conns.append(conn)
 
         self.add_region(region)
 
