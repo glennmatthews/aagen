@@ -224,13 +224,27 @@ class DungeonGenerator:
                 break
 
         def exit_helper(exit_dir, exit_line, region):
+            # Would the exit enter mapped space?
+            boundary = self.dungeon_map.conglomerate_polygon.boundary
             # If an "ahead" door is not generated, passage continues
             if exit_dir == base_dir and not door_ahead:
+                if boundary.contains(exit_line) or boundary.overlaps(exit_line):
+                    # Dead end instead of continuing into mapped space
+                    return None
                 return Connection(Connection.OPEN, exit_line, region, exit_dir)
             else:
                 # TODO - need to reduce exit_line size to 10' if passage
                 # was wider than 10' to begin with.
-                return Connection(Connection.DOOR, exit_line, region, exit_dir)
+                if boundary.contains(exit_line):
+                    # Entering already mapped space - must be one way!
+                    return Connection(Connection.ONEWAY, exit_line, region,
+                                      exit_dir)
+                elif boundary.overlaps(exit_line):
+                    # Partial overlap - would be messy, so don't do it
+                    return None
+                else:
+                    return Connection(Connection.DOOR, exit_line, region,
+                                      exit_dir)
 
         (region, conns) = self.dungeon_map.construct_intersection(
             connection, base_dir, exit_dirs, 10, exit_helper)
