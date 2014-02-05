@@ -23,6 +23,12 @@ def d4():
     return roll
 
 
+def d12():
+    roll = random.randint(1, 12)
+    log.info("d12 roll: {0}".format(roll))
+    return roll
+
+
 def d20():
     roll = random.randint(1, 20)
     log.info("d20 roll: {0}".format(roll))
@@ -502,13 +508,13 @@ class DungeonGenerator:
                 print("Generating exit #{0}".format(i+1))
                 self.generate_room_exit(new_region, exit_kind, exit_base_dir)
         else:
-            print("No normal exits were generated - check for secret doors")
+            print("No normal exits - check walls for secret doors (d12)")
             for direction in Direction.CARDINAL:
                 candidates = self.dungeon_map.find_options_for_connection(
                     10, new_region, direction)
                 for candidate in candidates:
-                    roll = d20()
-                    if roll <= 5:
+                    roll = d12()
+                    if roll == 1:
                         self.print_roll(roll, "Secret door here!")
                         conn = Connection(Connection.SECRET, candidate.line,
                                           new_region, candidate.dir)
