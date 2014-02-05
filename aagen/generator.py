@@ -400,23 +400,41 @@ class DungeonGenerator:
         base_dir = connection.direction
 
         if roll <= 8:
-            self.print_roll(roll, "It turns 90 degrees to the left")
-            new_dir = base_dir.rotate(90)
+            if base_dir.is_cardinal():
+                new_dir = base_dir.rotate(90)
+                self.print_roll(roll, "It turns 90 degrees to the left, {0}"
+                                .format(new_dir))
+            else:
+                # When diagonal passages turn, return to a cardinal direction
+                new_dir = base_dir.rotate(45)
+                self.print_roll(roll, "It turns to the left, {0}"
+                                .format(new_dir))
         elif roll <= 9:
-            self.print_roll(roll, "It turns 45 degrees to the left")
             new_dir = base_dir.rotate(45)
+            self.print_roll(roll, "It turns 45 degrees to the left, {0}"
+                            .format(new_dir))
         elif roll <= 10:
-            self.print_roll(roll, "It turns 135 degrees to the left")
             new_dir = base_dir.rotate(135)
+            self.print_roll(roll, "It turns 135 degrees to the left, {0}"
+                            .format(new_dir))
         elif roll <= 18:
-            self.print_roll(roll, "It turns 90 degrees to the right")
-            new_dir = base_dir.rotate(-90)
+            if base_dir.is_cardinal():
+                new_dir = base_dir.rotate(-90)
+                self.print_roll(roll, "It turns 90 degrees to the right, {0}"
+                                .format(new_dir))
+            else:
+                # When diagonal passages turn, return to a cardinal direction
+                new_dir = base_dir.rotate(-45)
+                self.print_roll(roll, "It turns to the right, {0}"
+                                .format(new_dir))
         elif roll <= 19:
-            self.print_roll(roll, "It turns 45 degrees to the right")
             new_dir = base_dir.rotate(-45)
+            self.print_roll(roll, "It turns 45 degrees to the right, {0}"
+                            .format(new_dir))
         elif roll <= 20:
-            self.print_roll(roll, "It turns 135 degrees to the right")
             new_dir = base_dir.rotate(-135)
+            self.print_roll(roll, "It turns 135 degrees to the right, {0}"
+                            .format(new_dir))
 
         width = self.roll_passage_width(new_dir.is_cardinal())
 
