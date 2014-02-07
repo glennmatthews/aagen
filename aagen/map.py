@@ -872,17 +872,19 @@ class Connection(MapElement):
                                arrow_line1, arrow_line2]
         elif kind == Connection.SECRET:
             # Construct an "S" consisting of two 3/4 circles
-            circle1 = (aagen.geometry.translate(mid, self.direction, 2)
+            circle1 = (aagen.geometry.translate(mid, 2, 0)
                        .buffer(2, resolution=8))
             # The circle consists of 33 points counterclockwise from (2, 0)
             arc1 = aagen.geometry.line(circle1.exterior.coords[16:] +
                                        circle1.exterior.coords[0:8])
-            arc1 = aagen.geometry.rotate(arc1, self.direction)
-            circle2 = (aagen.geometry.translate(mid, self.direction, -2)
+            circle2 = (aagen.geometry.translate(mid, -2, 0)
                        .buffer(2, resolution=8))
             arc2 = aagen.geometry.line(circle2.exterior.coords[0:24])
-            arc2 = aagen.geometry.rotate(arc2, self.direction)
-            self.draw_lines = [self.line, arc1, arc2]
+            # Combine them into an S shape and orient it appropriately
+            s  = aagen.geometry.line(list(reversed(arc1.coords)) +
+                                     list(arc2.coords))
+            s = aagen.geometry.rotate(s, self.direction)
+            self.draw_lines = [self.line, s]
         else:
             raise LookupError("Don't know how to define draw_lines for {0}"
                               .format(kind))
