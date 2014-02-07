@@ -58,8 +58,9 @@ class DungeonGenerator:
 
         if seed is None:
             seed = random.randint(0, 2 ** 31)
-        print("Random seed is {0}".format(seed))
-        random.seed(seed)
+        self.seed = seed
+        self.print_seed()
+        random.seed(self.seed)
 
         log.info("Initialized {0}".format(self))
 
@@ -105,6 +106,10 @@ class DungeonGenerator:
     def __str__(self):
         return ("<DungeonGenerator: with map {0}>"
                 .format(self.dungeon_map))
+
+
+    def print_seed(self):
+        print("Random seed: {0}".format(self.seed))
 
 
     def print_roll(self, roll, string):
