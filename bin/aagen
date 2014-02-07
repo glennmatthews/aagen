@@ -20,6 +20,7 @@ from aagen.generator import DungeonGenerator
 from aagen.map import DungeonMap
 from aagen.display import DungeonDisplay
 from aagen.aajson import MapEncoder, map_from_dict
+from aagen.geometry import to_string
 
 log = logging.getLogger('aagen')
 
@@ -137,6 +138,8 @@ def main():
                     (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
                     object = dungeon_map.object_at((click_x, click_y))
                     print(object)
+                    if args.verbose > 0 and hasattr(object, "polygon"):
+                        print("Polygon: " + to_string(object.polygon))
 
     log.info("Done!")
     dungeon_generator.print_seed()
