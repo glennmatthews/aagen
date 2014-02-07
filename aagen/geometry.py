@@ -531,16 +531,16 @@ def loft(*args):
     while len(lines) > 0:
         line2 = lines.pop(0)
         assert line2.length > 0
-        if line1.crosses(line2):
-            raise RuntimeError("line1 {0} crosses line2 {1} at {2}, "
-                               "unable to loft!"
-                               .format(to_string(line1), to_string(line2),
-                                       to_string(line1.intersection(line2))))
         log.debug("Constructing a polygon between {0} and {1}"
                   .format(to_string(line1), to_string(line2)))
         poly = None
         # Degenerate cases first
-        if line1.contains(line2):
+        if line1.crosses(line2):
+            log.warning("trying to loft but line1 {0} crosses line2 {1} at {2}"
+                        .format(to_string(line1), to_string(line2),
+                                to_string(line1.intersection(line2))))
+            # fallthru to default case at end
+        elif line1.contains(line2):
             poly = line1
         elif line2.contains(line1):
             poly = line2
@@ -549,18 +549,27 @@ def loft(*args):
             poly1 = Polygon(shapely.ops.linemerge([line1, line2]))
             if poly1.is_valid:
                 poly = poly1
+            else:
+                log.warning("line1 and line2 share an endpoint but "
+                            "cannot be merged: {0}"
+                            .format(shapely.validation.explain_validity(poly1)))
+        else:
+            # The lines do not touch, so we can just skin between them:
+            if poly is None and (not line(line1.boundary[0], line2.boundary[0])
+                                 .crosses(line(line1.boundary[1],
+                                               line2.boundary[1]))):
+                poly1 = (Polygon(list(line1.coords) +
+                                 list(reversed(line2.coords))))
+                if poly1.is_valid:
+                    poly = poly1
 
-        if poly is None and (not line(line1.boundary[0], line2.boundary[0])
-                             .crosses(line(line1.boundary[1], line2.boundary[1]))):
-            poly1 = (Polygon(list(line1.coords) + list(reversed(line2.coords))))
-            if poly1.is_valid:
-                poly = poly1
-
-        if poly is None and (not line(line1.boundary[0], line2.boundary[1])
-                             .crosses(line(line1.boundary[1], line2.boundary[0]))):
-            poly1 = (Polygon(list(line1.coords) + list(line2.coords)))
-            if poly1.is_valid:
-                poly = poly1
+            if poly is None and (not line(line1.boundary[0], line2.boundary[1])
+                                 .crosses(line(line1.boundary[1],
+                                               line2.boundary[0]))):
+                poly1 = (Polygon(list(line1.coords) +
+                                 list(line2.coords)))
+                if poly1.is_valid:
+                    poly = poly1
 
         if poly is None:
             log.warning("Unable to loft intuitively between {0} and {1}"
@@ -1256,9 +1265,17 @@ def oval_list(area, rotate=True):
             offset = 0
         else:
             offset = 5
-        oval = union(point(offset + 0.1, offset).buffer(h/2),
-                     point(w + offset - 0.1, offset).buffer(h/2),
-                     box(offset, offset - h/2, offset + w, offset + h/2))
+        circle = point(w - 0.01, offset).buffer(h/2, resolution=16)
+        # circle is a set of (16 * 4 + 1) points counterclockwise from (x, 0)
+        left_arc = line([(0, -h/2 + offset)] +
+                        translate(circle, -w + 0.02, 0).exterior.coords[17:48] +
+                        [(0, h/2 + offset)])
+        right_arc = line([(w, h/2 + offset)] +
+                         circle.exterior.coords[49:] +
+                         circle.exterior.coords[0:16] +
+                         [(w, -h/2 + offset)])
+        oval = loft(left_arc, right_arc)
+
         ovals.append(oval)
         if rotate:
             ovals.append(shapely.affinity.rotate(oval, 90, origin=(0,0)))
