@@ -75,15 +75,21 @@ def main():
     dungeon_display = DungeonDisplay(dungeon_map)
     dungeon_generator = DungeonGenerator(dungeon_map, args.seed)
     dungeon_map.flush()
+    running = True
+    done = False
+
     for i in range(0, args.run_steps):
         dungeon_map.flush()
-        dungeon_generator.step()
+        try:
+            dungeon_generator.step()
+        except Exception as e:
+            print (e)
+            traceback.print_exc()
+            running = False
+            break
         dungeon_display.draw(verbosity=args.verbose)
 
     dungeon_display.draw(verbosity=args.verbose)
-
-    running = True
-    done = False
 
     while not done:
         clock.tick(10)
@@ -133,6 +139,7 @@ def main():
                     print(object)
 
     log.info("Done!")
+    dungeon_generator.print_seed()
 
     pygame.quit()
 
