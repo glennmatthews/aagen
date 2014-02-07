@@ -175,6 +175,8 @@ def main():
                 (click_x, click_y) = dungeon_display.screen_to_map(event.pos)
                 object = dungeon_map.object_at((click_x, click_y))
                 print(object)
+                if hasattr(object, "polygon"):
+                    print(aagen.geometry.to_string(object.polygon))
 
         if dirty:
             shape_lists_to_map(dungeon_map, shape_lists[:num_shapes],
