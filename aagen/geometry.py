@@ -889,6 +889,8 @@ def trim(shape, trimmer, adjacent_shape):
 
     if match is not None:
         log.debug("Trimmed shape to fit")
+        if match.area > 0:
+            match = match.simplify(0)
         # TODO? force all coordinates in match to snap to 1' grid
     else:
         log.debug("After trimming, shape is nonexistent")
