@@ -638,9 +638,6 @@ def loft_to_grid(base_line, dir, width):
            sweep(candidate_2, dir, 50)[0].contains(base_line)):
         candidate_2 = translate(candidate_2, dir, 10)
 
-    # Provide sufficient overlap with the base shape for safety
-    base_line = translate(base_line, dir, -1)
-
     poly1 = loft(base_line, candidate_1)
     poly2 = loft(base_line, candidate_2)
 
