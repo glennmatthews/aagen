@@ -41,12 +41,17 @@ def filtered(l, key, epsilon=0):
     value for this criterion is worse than the best element by more than
     the given epsilon.
     """
+    if len(l) < 2:
+        return l
     new_l = sorted(l, key=key)
     best = key(new_l[0])
-    for i in range(0, len(new_l)):
+    slice = False
+    for i in range(1, len(new_l)):
         if key(new_l[i]) > best + epsilon:
+            slice = True
             break
-    new_l = new_l[:i+1]
+    if slice:
+        new_l = new_l[:i]
     return new_l
 
 
