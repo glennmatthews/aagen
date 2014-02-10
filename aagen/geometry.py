@@ -85,6 +85,9 @@ def grid_aligned(line, direction):
     if (Direction.normal_to(line) != direction and
         Direction.normal_to(line) != direction.rotate(180)):
         return False
+    # If the line bends, it is not grid aligned by definition:
+    if len(line.simplify(0).coords) > 2:
+        return False
     (p1, p2) = list(line.boundary)
     if p1.x == p2.x or p1.y == p2.y:
         # Vertical or horizontal, promising...
