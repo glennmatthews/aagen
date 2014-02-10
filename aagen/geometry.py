@@ -1357,7 +1357,7 @@ def union(*args):
     if len(args) == 1:
         args = args[0]
     union = shapely.ops.cascaded_union(args)
-    # TODO, any cleanup?
+    union = union.simplify(0)
     return union
 
 
