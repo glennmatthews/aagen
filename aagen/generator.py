@@ -505,7 +505,6 @@ class DungeonGenerator:
         # Construct the region and add it to the map
         new_region = Region(kind, shape)
         for resolved_conn in selected_region.connections:
-            print(resolved_conn)
             if resolved_conn.kind == Connection.OPEN:
                 resolved_conn.set_kind(Connection.ARCH)
         self.dungeon_map.add_region(new_region)
