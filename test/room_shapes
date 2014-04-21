@@ -81,6 +81,29 @@ def shape_lists_to_map(dungeon_map, shape_lists, exit_width):
                                   for shape in shape_list]) + 5) / 10)
 
 
+def make_shape_lists(shape):
+    # Construct demo intersections
+    if shape == 'circle':
+        return [aagen.geometry.circle_list(size) for size in size_list]
+    elif shape == 'hexagon':
+        return [aagen.geometry.hexagon_list(size, rotate=False)
+                for size in size_list]
+    elif shape == 'octagon':
+        return [aagen.geometry.octagon_list(size) for size in size_list]
+    elif shape == 'oval':
+        return [aagen.geometry.oval_list(size, rotate=False)
+                for size in size_list]
+    elif shape == 'trapezoid':
+        return [aagen.geometry.trapezoid_list(size,
+                                              rotate_and_mirror=False)
+                for size in size_list]
+    elif shape == 'triangle':
+        return [aagen.geometry.triangle_list(size, rotate=False)
+                for size in size_list]
+    else:
+        raise LookupError("Unknown shape {0}".format(shape))
+
+
 def main():
     global exit_dir, add_exits
     logging.basicConfig()
@@ -102,24 +125,7 @@ def main():
     dungeon_map = DungeonMap()
     dungeon_display = DungeonDisplay(dungeon_map)
 
-    # Construct demo intersections
-    if args.shape == 'circle':
-        shape_lists = [aagen.geometry.circle_list(size) for size in size_list]
-    elif args.shape == 'hexagon':
-        shape_lists = [aagen.geometry.hexagon_list(size, rotate=False)
-                       for size in size_list]
-    elif args.shape == 'octagon':
-        shape_lists = [aagen.geometry.octagon_list(size) for size in size_list]
-    elif args.shape == 'oval':
-        shape_lists = [aagen.geometry.oval_list(size, rotate=False)
-                       for size in size_list]
-    elif args.shape == 'trapezoid':
-        shape_lists = [aagen.geometry.trapezoid_list(size,
-                                                     rotate_and_mirror=False)
-                       for size in size_list]
-    elif args.shape == 'triangle':
-        shape_lists = [aagen.geometry.triangle_list(size, rotate=False)
-                       for size in size_list]
+    shape_lists = make_shape_lists(args.shape)
 
     num_shapes = 5
     exit_width = 10
@@ -132,6 +138,7 @@ def main():
     done = False
     dirty = False
 
+    print("Press N/P to switch to next/previous room shape class")
     print("Press -/= to decrease/increase the range of room sizes shown")
     print("Press E to toggle exit construction")
     print("When exit construction is on, press L/R to change exit direction")
@@ -160,6 +167,20 @@ def main():
                     if add_exits:
                         exit_dir = exit_dir.rotate(45)
                         dirty = True
+                elif event.key == pygame.K_n:
+                    next_index = supported_shapes.index(args.shape) + 1
+                    if next_index >= len(supported_shapes):
+                        next_index = 0
+                    args.shape = supported_shapes[next_index]
+                    shape_lists = make_shape_lists(args.shape)
+                    dirty = True
+                elif event.key == pygame.K_p:
+                    prev_index = supported_shapes.index(args.shape) - 1
+                    if prev_index < 0:
+                        prev_index = len(supported_shapes) - 1
+                    args.shape = supported_shapes[prev_index]
+                    shape_lists = make_shape_lists(args.shape)
+                    dirty = True
                 elif event.key == pygame.K_r:
                     if add_exits:
                         exit_dir = exit_dir.rotate(-45)
