@@ -690,10 +690,14 @@ def find_edge_segments(poly, width, direction):
             return (math.fabs(w - size) < 0.1 and h < size)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
-                return (option_a.bounds[3] > option_b.bounds[3])
+                return (option_a.bounds[3] > option_b.bounds[3] or (
+                    option_a.bounds[3] == option_b.bounds[3] and
+                    option_a.bounds[1] > option_b.bounds[1]))
         else: # south
             def prefer(option_a, option_b):
-                return (option_a.bounds[1] < option_b.bounds[1])
+                return (option_a.bounds[1] < option_b.bounds[1] or (
+                    option_a.bounds[1] == option_b.bounds[1] and
+                    option_a.bounds[3] < option_b.bounds[3]))
     elif direction == Direction.W or direction == Direction.E:
         inter_box = box(xmin - 10, math.floor(ymin/10)*10,
                         xmax + 10, math.floor(ymin/10)*10 + width)
@@ -708,10 +712,14 @@ def find_edge_segments(poly, width, direction):
             return (math.fabs(h - size) < 0.1 and w < size)
         if direction[0] < 0: #west
             def prefer(option_a, option_b):
-                return (option_a.bounds[0] < option_b.bounds[0])
+                return (option_a.bounds[0] < option_b.bounds[0] or (
+                    option_a.bounds[0] == option_b.bounds[0] and
+                    option_a.bounds[2] < option_b.bounds[2]))
         else: # east
             def prefer(option_a, option_b):
-                return (option_a.bounds[2] > option_b.bounds[2])
+                return (option_a.bounds[2] > option_b.bounds[2] or (
+                    option_a.bounds[2] == option_b.bounds[2] and
+                    option_a.bounds[0] > option_b.bounds[0]))
     elif direction == Direction.NW or direction == Direction.SE:
         line1 = point_sweep(point(math.floor(xmin/10) * 10,
                                   math.ceil(ymax/10) * 10), Direction.NE, 2000)
@@ -746,10 +754,14 @@ def find_edge_segments(poly, width, direction):
             return (h > 0 and w > 0 and math.fabs(w + h - size) < 0.1)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
-                return (option_a.bounds[1] > option_b.bounds[1])
+                return (option_a.bounds[1] > option_b.bounds[1] or (
+                    option_a.bounds[1] == option_b.bounds[1] and
+                    option_a.bounds[3] > option_b.bounds[3]))
         else: # south
             def prefer(option_a, option_b):
-                return (option_a.bounds[3] < option_b.bounds[3])
+                return (option_a.bounds[3] < option_b.bounds[3] or (
+                    option_a.bounds[3] == option_b.bounds[3] and
+                    option_a.bounds[1] < option_b.bounds[1]))
     elif direction == Direction.NE or direction == Direction.SW:
         line1 = point_sweep(point(math.floor(xmin/10) * 10,
                                   math.floor(ymin/10) * 10), Direction.NW, 2000)
@@ -784,10 +796,14 @@ def find_edge_segments(poly, width, direction):
             return (h > 0 and w > 0 and math.fabs(w + h - size) < 0.1)
         if direction[1] > 0: #north
             def prefer(option_a, option_b):
-                return (option_a.bounds[1] > option_b.bounds[1])
+                return (option_a.bounds[1] > option_b.bounds[1] or (
+                    option_a.bounds[1] == option_b.bounds[1] and
+                    option_a.bounds[3] > option_b.bounds[3]))
         else: # south
             def prefer(option_a, option_b):
-                return (option_a.bounds[3] < option_b.bounds[3])
+                return (option_a.bounds[3] < option_b.bounds[3] or (
+                    option_a.bounds[3] == option_b.bounds[3] and
+                    option_a.bounds[1] < option_b.bounds[1]))
 
     log.debug("box: {0}, offset: {1}".format(to_string(inter_box), offset))
     candidates = []
@@ -839,7 +855,12 @@ def find_edge_segments(poly, width, direction):
 
         inter_box = translate(inter_box, offset, 10)
 
-        if best is None or not check_size(best, width):
+        if best is None:
+            log.debug("No valid candidate found")
+            continue
+        elif not check_size(best, width):
+            log.debug("Best-fit {0} failed check_size() check against {1}"
+                      .format(to_string(best), width))
             continue
 
         log.info("Found section: {0}".format(to_string(best)))
@@ -1267,15 +1288,15 @@ def oval_list(area, rotate=True):
             offset = 0
         else:
             offset = 5
-        circle = point(w - 0.01, offset).buffer(h/2, resolution=16)
+        circle = point(w - 0.01 + offset, offset).buffer(h/2, resolution=16)
         # circle is a set of (16 * 4 + 1) points counterclockwise from (x, 0)
-        left_arc = line([(0, -h/2 + offset)] +
+        left_arc = line([(offset, -h/2 + offset)] +
                         translate(circle, -w + 0.02, 0).exterior.coords[17:48] +
-                        [(0, h/2 + offset)])
-        right_arc = line([(w, h/2 + offset)] +
+                        [(offset, h/2 + offset)])
+        right_arc = line([(w + offset, h/2 + offset)] +
                          circle.exterior.coords[49:] +
                          circle.exterior.coords[0:16] +
-                         [(w, -h/2 + offset)])
+                         [(w + offset, -h/2 + offset)])
         oval = loft(left_arc, right_arc)
 
         ovals.append(oval)
