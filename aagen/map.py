@@ -171,7 +171,7 @@ class DungeonMap:
     def refresh_conglomerate(self):
         """Regenerate the conglomerate polygon.
         """
-        polygons = set([r.polygon for r in self.regions])
+        polygons = [r.polygon for r in self.regions]
         self.conglomerate_polygon = aagen.geometry.union(polygons)
 
 

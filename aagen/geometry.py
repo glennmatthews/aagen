@@ -530,7 +530,7 @@ def loft(*args):
     lines = list(args)
     line1 = lines.pop(0)
     assert line1.length > 0
-    poly_set = set()
+    polys = []
     while len(lines) > 0:
         line2 = lines.pop(0)
         assert line2.length > 0
@@ -583,10 +583,10 @@ def loft(*args):
 
         log.debug("Constructed {0}".format(to_string(poly)))
         if poly is not None:
-            poly_set.add(poly)
+            polys.append(poly)
         line1 = line2
 
-    return shapely.ops.cascaded_union(poly_set)
+    return shapely.ops.cascaded_union(polys)
 
 
 def loft_to_grid(base_line, dir, width):
